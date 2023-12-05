@@ -1,43 +1,53 @@
 # definitions.jl
 
-struct Environment
-    workspace::VPolygon
-    obstacle_list::Array{VPolygon}
-    goal::VPolygon
+# struct Environment{N}
+#     workspace::VPolygon
+#     obstacle_list::SVector{N,VPolygon}
+#     goal::VPolygon
+# end
+
+struct Environment{P,Q,R}
+    workspace::P
+    obstacle_list::Q
+    goal::R
 end
 
 struct VehicleBody
     l::Float64
-    body_dims::Array{Float64}
+    body_dims::SVector{2,Float64}
     radius_vb::Float64
-    origin_to_cent::Array{Float64}
+    origin_to_cent::SVector{2,Float64}
     origin_body::VPolygon
     phi_max::Float64
     v_max::Float64
 end
 
-struct StateGrid
+struct StateGrid{P,Q}
     state_grid::RectangleGrid
-    state_list_static::Array{Any}
+    state_list_static::P
     angle_wrap_array::Array{Bool}
-    ind_gs_array::Array
+    ind_gs_array::Q
 end
 
 # defines environment geometry
 function define_environment(workspace, obstacle_list, goal)
-    env = Environment(workspace, obstacle_list, goal)
-    return env
+    return Environment(workspace, obstacle_list, goal)
 end
 
 # defines vehicle geometry
 function define_vehicle(wheelbase, body_dims, origin_to_cent, phi_max, v_max)
     radius_vb = sqrt((0.5*body_dims[1])^2 + (0.5*body_dims[2])^2)
-    
+
     x0_min = origin_to_cent[1] - 1/2*body_dims[1]
     x0_max = origin_to_cent[1] + 1/2*body_dims[1]
     y0_min = origin_to_cent[2] - 1/2*body_dims[2]
     y0_max = origin_to_cent[2] + 1/2*body_dims[2]
-    origin_body = VPolygon([[x0_min, y0_min], [x0_max, y0_min], [x0_max, y0_max], [x0_min, y0_max]])
+    origin_body = VPolygon([
+                        SVector(x0_min, y0_min),
+                        SVector(x0_max, y0_min),
+                        SVector(x0_max, y0_max),
+                        SVector(x0_min, y0_max)
+                        ])
 
     veh = VehicleBody(wheelbase, body_dims, radius_vb, origin_to_cent, origin_body, phi_max, v_max)
     return veh
@@ -45,10 +55,14 @@ end
 
 # discretizes state space
 function define_state_grid(state_space, dx_sizes, angle_wrap)
+    #Define the iterator that has all the points we want to compute the values at in all the dimensions
+
+    N = length(state_space)
     state_iters = [minimum(axis):dx_sizes[i]:maximum(axis) for (i, axis) in enumerate(state_space)]
+    #Define a RectangleGrid
     state_grid = RectangleGrid(state_iters...)
 
-    state_list_static = []
+    state_list_static = SVector{N,Float64}[]
     for state in state_grid
         push!(state_list_static, SA[state...])
     end
@@ -80,6 +94,13 @@ function define_state_grid(state_space, dx_sizes, angle_wrap)
         push!(ind_gs_array, ind_list)
     end
 
+    return state_grid, state_list_static, angle_wrap, ind_gs_array
+
     sg = StateGrid(state_grid, state_list_static, angle_wrap, ind_gs_array)
     return sg
 end
+#=
+state_space = [[0.0, 10.0], [0.0, 10.0], [-pi, pi], [0.0, 2.0]]
+state_space2 = SVector( (0.0, 10.0), (0.0, 10.0), (-pi, pi), (0.0, 2.0) )
+
+=#

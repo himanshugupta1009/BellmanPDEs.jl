@@ -1,17 +1,19 @@
 # utils.jl
 
-# NOTE: needs to be general for:
-#   - solving value grid
-#   - planning over full action space
-#   - planning over smaller action space
+#=
+NOTE: needs to be general for:
+  - solving value grid
+  - planning over full action space
+  - planning over smaller action space
 
-#   - val_x - best value result out of actions tested (single Float64)
-#   - ia_opt - action tested that produced best value (single Int)
-#   - qval_x_array - value produced by each of actions tested (array of Float64, length(ia_set))
+  - val_x - best value result out of actions tested (single Float64)
+  - ia_opt - action tested that produced best value (single Int)
+  - qval_x_array - value produced by each of actions tested (array of Float64, length(ia_set))
+=#
 
-function optimize_action(x, ia_set, actions, get_reward::Function, Dt, value_array, veh, sg)    
-    qval_x_array = zeros(Float64, length(ia_set))  
-    
+function optimize_action(x, ia_set, actions, get_reward::Function, Dt, value_array, veh, sg)
+    qval_x_array = zeros(Float64, length(ia_set))
+
     # iterate through all given action indices
     for ja in eachindex(ia_set)
         a = actions[ia_set[ja]]
@@ -33,8 +35,17 @@ function optimize_action(x, ia_set, actions, get_reward::Function, Dt, value_arr
 
     return qval_x_array, val_x, ia_opt
 end
+#=
+RG = run_HJB(false);
+function test_optimize_actions(RG)
+    state_k = SVector(2.0,2.0,0.0,1.0)
+    actions, ia_set = RG[:f_act](state_k, RG[:Dt], RG[:veh])
+    optimize_action(state_k, ia_set, actions, RG[:f_cost], RG[:Dt], RG[:V], RG[:veh], RG[:sg])
+end
+=#
 
-function propagate_state(x_k, a_k, Dt, veh)
+
+function old_propagate_state(x_k, a_k, Dt, veh)
     # define number of substeps used for integration
     substeps = 10
     Dt_sub = Dt / substeps
@@ -46,7 +57,7 @@ function propagate_state(x_k, a_k, Dt, veh)
     for kk in 1:substeps
         # Dv applied on first substep only
         kk == 1 ? a_kk = a_k : a_kk = SVector{2, Float64}(a_k[1], 0.0)
-            
+
         # propagate for Dt_sub
         x_kk1 = discrete_time_EoM(x_kk, a_kk, Dt_sub, veh)
 
@@ -59,7 +70,13 @@ function propagate_state(x_k, a_k, Dt, veh)
 
     x_k1 = x_kk
 
-    return x_k1, x_k1_subpath
+    return x_k1, SVector(x_k1_subpath)
+end
+
+function propagate_state(x_k, a_k, Dt, veh)
+    # define number of substeps used for integration
+    x_k1 = discrete_time_EoM(x_k, a_k, Dt, veh)
+    return x_k1, 1
 end
 
 function discrete_time_EoM(x_k, a_k, Dt, veh)
@@ -98,21 +115,27 @@ function discrete_time_EoM(x_k, a_k, Dt, veh)
     return x_k1
 end
 
-function interp_value(x, value_array, sg)
+function interp_value(x::AbstractVector, value_array::Vector{Float64}, sg::StateGrid)
     # check if current state is within state space
-    for d in eachindex(x)
-        if x[d] < sg.state_grid.cutPoints[d][1] || x[d] > sg.state_grid.cutPoints[d][end]
-            val_x = -1e6
-
-            return val_x
-        end
-    end
+    # for d in eachindex(x)
+    #     if x[d] < sg.state_grid.cutPoints[d][1] || x[d] > sg.state_grid.cutPoints[d][end]
+    #         val_x = -1e6
+    #         return val_x
+    #     end
+    # end
 
     # interpolate value at given state
-    val_x = interpolate(sg.state_grid, value_array, x)
+    val_x = GridInterpolations.interpolate(sg.state_grid, value_array, x)
 
     return val_x
 end
+#=
+RG = run_HJB(false);
+function test_interp_value(RG)
+    state_k = SVector(2.4,1.7,0.3,1.0)
+    interp_value(state_k,RG[:V],RG[:sg])
+end
+=#
 
 function interp_value_NN(x, value_array, sg)
     # check if current state is within state space
@@ -223,14 +246,11 @@ end
 function VPolyCircle(cent_cir, r_cir)
     # number of points used to discretize edge of circle
     pts = 16
-
     # circle radius is used as midpoint radius for polygon faces (over-approximation)
     r_poly = r_cir/cos(pi/pts)
 
     theta_rng = range(0, 2*pi, length=pts+1)
-
-    cir_vertices = [[cent_cir[1] + r_poly*cos(theta), cent_cir[2] + r_poly*sin(theta)] for theta in theta_rng]
-
+    cir_vertices = [ SVector(cent_cir[1] + r_poly*cos(theta), cent_cir[2] + r_poly*sin(theta)) for theta in theta_rng]
     poly_cir = VPolygon(cir_vertices)
 
     return poly_cir

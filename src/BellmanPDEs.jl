@@ -4,11 +4,12 @@ using StaticArrays
 using GridInterpolations
 using LazySets
 using Random
+using JLD2
 using Plots
 
 export VPolygon, VPolyCircle, SVector, SArray, Environment, VehicleBody, StateGrid,
     define_environment, define_vehicle, define_state_grid,
-    solve_HJB_PDE, plan_path, 
+    solve_HJB_PDE, plan_path,
     interp_value, in_target_set, in_obstacle_set, in_workspace,
     HJB_policy, approx_HJB_policy, reactive_policy, approx_reactive_policy,
     plot_HJB_value, plot_HJB_path, plot_path_value, state_to_body, state_to_body_circle

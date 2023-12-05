@@ -1,7 +1,5 @@
 # planner.jl
 
-using Random
-
 # rng = MT(6) for left of obstacle
 # rng = MT(8) for more variance on approx policy
 # rng = MT(25) sends approx around top obstacle
@@ -11,9 +9,9 @@ function plan_path(x_0, policy::Function, safe_value_lim, get_actions::Function,
     val_0 = interp_value(x_0, value_array, sg)
 
     Dv_RC_hist = rand(MersenneTwister(35), [-0.5, 0.0, 0.5], max_plan_steps)
-    
+
     x_path = []
-    x_subpath = []  
+    x_subpath = []
     a_path = []
     val_path = []
 
@@ -22,7 +20,7 @@ function plan_path(x_0, policy::Function, safe_value_lim, get_actions::Function,
     push!(val_path, val_0)
 
     x_k = x_0
-   
+
     for plan_step in 1:max_plan_steps
         # calculate rollout action
         Dv_RC = Dv_RC_hist[plan_step]
@@ -33,7 +31,7 @@ function plan_path(x_0, policy::Function, safe_value_lim, get_actions::Function,
 
         # take value at current state (for plotting)
         val_k1 = interp_value(x_k1, value_array, sg)
-        
+
         # store state and action at current time step
         push!(x_path, x_k1)
         for x_kk in x_k1_subpath
@@ -46,7 +44,7 @@ function plan_path(x_0, policy::Function, safe_value_lim, get_actions::Function,
         if in_target_set(x_k1, env, veh) == true
             break
         end
-        
+
         # pass state forward to next step
         x_k = deepcopy(x_k1)
     end
@@ -118,7 +116,7 @@ function approx_HJB_policy(x_k, Dv_RC, safe_value_lim, get_actions::Function, ge
     return a_ro
 end
 
-function reactive_policy(x_k, Dv_RC, safe_value_lim, get_actions::Function, get_reward::Function, Dt, q_value_array, value_array, veh, sg)    
+function reactive_policy(x_k, Dv_RC, safe_value_lim, get_actions::Function, get_reward::Function, Dt, q_value_array, value_array, veh, sg)
     # get actions for current state
     actions, ia_set = get_actions(x_k, Dt, veh)
 
@@ -129,7 +127,7 @@ function reactive_policy(x_k, Dv_RC, safe_value_lim, get_actions::Function, get_
     # check if [Dv_RC, phi_best_RC] is a valid action in static environment ---
     if val_x_RC >= safe_value_lim
         a_ro = actions[ia_RC]
- 
+
         return a_ro, qval_x_RC_array
     end
 
@@ -140,6 +138,16 @@ function reactive_policy(x_k, Dv_RC, safe_value_lim, get_actions::Function, get_
 
     return a_ro, qval_x_HJB_array
 end
+#=
+RG = run_HJB(false);
+function test_reactive_policy(RG)
+    state_k = SVector(2.0,2.0,0.0,1.0)
+    delta_speed = 0.5
+    safe_value_lim = 750.0
+    one_time_step = 0.5
+    reactive_policy(state_k,delta_speed,safe_value_lim,RG[:f_act],RG[:f_cost],one_time_step,RG[:Q],RG[:V],RG[:veh],RG[:sg])
+end
+=#
 
 # ISSUE: need to add q_val return for this function
 function approx_reactive_policy(x_k, Dv_RC, safe_value_lim, get_actions::Function, get_reward::Function, Dt, q_value_array, value_array, veh, sg)
@@ -149,7 +157,7 @@ function approx_reactive_policy(x_k, Dv_RC, safe_value_lim, get_actions::Functio
     # A) get near-optimal RC action from nearest neighbor ---
     # limit action set based on reactive controllers
     ia_RC_set = findall(a -> a[2] == Dv_RC, actions)
-    
+
     # find nearest neighbor in state grid
     ind_s_nbrs, weights_nbrs = interpolants(sg.state_grid, x_k)
     ind_s_NN = ind_s_nbrs[findmax(weights_nbrs)[2]]
@@ -176,7 +184,7 @@ function approx_reactive_policy(x_k, Dv_RC, safe_value_lim, get_actions::Functio
     qval_x_HJB_array, _, ia_HJB = optimize_action(x_k, ia_set, actions, get_reward, Dt, value_array, veh, sg)
 
     a_ro = actions[ia_HJB]
-    
+
     return a_ro, qval_x_HJB_array
 end
 
