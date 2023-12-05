@@ -145,7 +145,7 @@ function test_reactive_policy(RG)
     delta_speed = 0.5
     safe_value_lim = 750.0
     one_time_step = 0.5
-    reactive_policy(state_k,delta_speed,safe_value_lim,RG[:f_act],RG[:f_cost],one_time_step,RG[:Q],RG[:V],RG[:veh],RG[:sg])
+    reactive_policy(state_k,delta_speed,safe_value_lim,RG[:f_act],RG[:f_cost],one_time_step,RG[:Q],RG[:V],RG[:veh],RG[:sg].state_grid)
 end
 =#
 

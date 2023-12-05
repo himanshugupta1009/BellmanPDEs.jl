@@ -37,12 +37,12 @@ function optimize_action(x, ia_set, actions, get_reward::Function, Dt, value_arr
 end
 #=
 RG = run_HJB(false);
+=#
 function test_optimize_actions(RG)
     state_k = SVector(2.0,2.0,0.0,1.0)
     actions, ia_set = RG[:f_act](state_k, RG[:Dt], RG[:veh])
-    optimize_action(state_k, ia_set, actions, RG[:f_cost], RG[:Dt], RG[:V], RG[:veh], RG[:sg])
+    optimize_action(state_k, ia_set, actions, RG[:f_cost], RG[:Dt], RG[:V], RG[:veh], RG[:sg].state_grid)
 end
-=#
 
 
 function old_propagate_state(x_k, a_k, Dt, veh)
@@ -115,17 +115,17 @@ function discrete_time_EoM(x_k, a_k, Dt, veh)
     return x_k1
 end
 
-function interp_value(x::AbstractVector, value_array::Vector{Float64}, sg::StateGrid)
+function interp_value(x::AbstractVector, value_array::Vector{Float64}, grid::RectangleGrid)
     # check if current state is within state space
-    # for d in eachindex(x)
-    #     if x[d] < sg.state_grid.cutPoints[d][1] || x[d] > sg.state_grid.cutPoints[d][end]
-    #         val_x = -1e6
-    #         return val_x
-    #     end
-    # end
+    for d in eachindex(x)
+        if x[d] < grid.cutPoints[d][1] || x[d] > grid.cutPoints[d][end]
+            val_x = -1e6
+            return val_x
+        end
+    end
 
     # interpolate value at given state
-    val_x = GridInterpolations.interpolate(sg.state_grid, value_array, x)
+    val_x = GridInterpolations.interpolate(grid, value_array, x)
 
     return val_x
 end
@@ -133,9 +133,24 @@ end
 RG = run_HJB(false);
 function test_interp_value(RG)
     state_k = SVector(2.4,1.7,0.3,1.0)
-    interp_value(state_k,RG[:V],RG[:sg])
+    interp_value(state_k,RG[:V],RG[:sg].state_grid)
 end
 =#
+
+function interp_value2(x::AbstractVector, value_array::Vector{Float64}, sg::StateGrid)
+    # check if current state is within state space
+    for d in eachindex(x)
+        if x[d] < sg.state_grid.cutPoints[d][1] || x[d] > sg.state_grid.cutPoints[d][end]
+            val_x = -1e6
+            return val_x
+        end
+    end
+
+    # interpolate value at given state
+    val_x = GridInterpolations.interpolate(sg.state_grid, value_array, x)
+
+    return val_x
+end
 
 function interp_value_NN(x, value_array, sg)
     # check if current state is within state space
@@ -243,15 +258,49 @@ function state_to_body_circle(x, veh)
 end
 
 # used to create circles as polygons in LazySets.jl
-function VPolyCircle(cent_cir, r_cir)
+function VPolyCircle(center, radius)
     # number of points used to discretize edge of circle
     pts = 16
     # circle radius is used as midpoint radius for polygon faces (over-approximation)
-    r_poly = r_cir/cos(pi/pts)
-
+    r_poly = radius/cos(pi/pts)
     theta_rng = range(0, 2*pi, length=pts+1)
-    cir_vertices = [ SVector(cent_cir[1] + r_poly*cos(theta), cent_cir[2] + r_poly*sin(theta)) for theta in theta_rng]
-    poly_cir = VPolygon(cir_vertices)
+    circular_polygon_vertices = [ SVector(center[1] + r_poly*cos(theta), center[2] + r_poly*sin(theta)) for theta in theta_rng]
+    circular_polygon = VPolygon(circular_polygon_vertices)
 
-    return poly_cir
+    return circular_polygon
+end
+
+
+function get_iterators(state_space,dx_sizes)
+
+    state_iters = [minimum(axis):dx_sizes[i]:maximum(axis) for (i, axis) in enumerate(state_space)]
+
+    # Gauss-Seidel sweeping scheme
+    gs_iters = [[0,1] for axis in state_space]
+    gs_prod = Iterators.product(gs_iters...)
+    gs_list = Iterators.map(tpl -> convert(SVector{length(gs_iters), Int}, tpl), gs_prod)
+
+    # for sweep in gs_list, need to define ind_list
+    ind_gs_array = []
+    for (i_gs, gs) in enumerate(gs_list)
+
+        # for axis in sweep = [0,1,1], reverse ind_iters
+        ind_iters = Array{StepRange{Int64, Int64}}(undef, size(state_space,1))
+        for (i_ax, ax) in enumerate(gs)
+            if gs[i_ax] == 0.0
+                # forward
+                ind_iters[i_ax] = 1:1:size(state_iters[i_ax],1)
+            else
+                # reverse
+                ind_iters[i_ax] = size(state_iters[i_ax],1):-1:1
+            end
+        end
+
+        ind_prod = Iterators.product(ind_iters...)
+        ind_list = Iterators.map(tpl -> convert(SVector{length(ind_iters), Int}, tpl), ind_prod)
+
+        push!(ind_gs_array, ind_list)
+    end
+
+    return ind_gs_array
 end
