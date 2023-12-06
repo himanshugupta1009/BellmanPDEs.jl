@@ -186,14 +186,14 @@ function better_reactive_policy(x_k::SVector{4,Float64}, Dv_RC::Float64, safe_va
     # get actions for current state
     actions, ia_set = get_actions(x_k, Dt, veh)
 
-    velocity_set = (Dv_RC)
+    velocity_set = Tuple(Dv_RC)
     val_x_RC, ia_RC = new_optimize_action(x_k, velocity_set, ia_set, actions, get_reward, Dt, value_array, veh, sg)
 
     # check if [Dv_RC, phi_best_RC] is a valid action in static environment ---
-    # if val_x_RC >= safe_value_lim
-    #     a_ro = actions[ia_RC]
-    #     return a_ro
-    # end
+    if val_x_RC >= safe_value_lim
+        a_ro = actions[ia_RC]
+        return a_ro
+    end
 
     # B) if RC action is not valid, then find pure HJB best action ---
     velocity_set = (0.0,-Dv_RC)
@@ -204,14 +204,14 @@ function better_reactive_policy(x_k::SVector{4,Float64}, Dv_RC::Float64, safe_va
 end
 #=
 RG = run_HJB(false);
+=#
 function test_better_reactive_policy(RG)
     state_k = SVector(2.0,2.0,0.0,1.0)
     delta_speed = 0.5
-    safe_value_lim = 750.0
+    safe_value_lim = 0.0
     one_time_step = 0.5
     better_reactive_policy(state_k,delta_speed,safe_value_lim,RG[:f_act],RG[:f_cost],one_time_step,RG[:Q],RG[:V],RG[:veh],RG[:sg])
 end
-=#
 
 # ISSUE: need to add q_val return for this function
 function approx_reactive_policy(x_k, Dv_RC, safe_value_lim, get_actions::Function, get_reward::Function, Dt, q_value_array, value_array, veh, sg)

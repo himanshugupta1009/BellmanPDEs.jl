@@ -32,12 +32,12 @@ function get_HJB_environment()
 
     obstacle_list = Array{VPolygon,1}()
     for obs in workspace_obstacles
-        push!(obstacle_list, VPolyCircle([obs[1],obs[2]],obs[3]+0.1))
+        push!(obstacle_list, VPolyCircle((obs[1],obs[2]),obs[3]+0.1))
     end
     obstacle_list = SVector{4,VPolygon{Float64, SVector{2, Float64}}}(obstacle_list)
 
     workspace_goal = (13.5,19.0)
-    goal = VPolyCircle([workspace_goal[1], workspace_goal[2]], 1.0)
+    goal = VPolyCircle((workspace_goal[1], workspace_goal[2]), 1.0)
 
     env = define_environment(workspace, obstacle_list, goal)
     return env

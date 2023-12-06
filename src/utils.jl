@@ -72,7 +72,7 @@ end
 function test_new_optimize_actions(RG)
     state_k = SVector(2.0,2.0,0.0,1.0)
     actions, ia_set = RG[:f_act](state_k, RG[:Dt], RG[:veh])
-    new_optimize_action(state_k, 0.5, ia_set, actions, RG[:f_cost], RG[:Dt], RG[:V], RG[:veh], RG[:sg])
+    new_optimize_action(state_k, Tuple(0.5), ia_set, actions, RG[:f_cost], RG[:Dt], RG[:V], RG[:veh], RG[:sg])
 end
 
 function old_propagate_state(x_k, a_k, Dt, veh)
@@ -167,21 +167,6 @@ function test_interp_value(RG)
 end
 =#
 
-function interp_value2(x::AbstractVector, value_array::Vector{Float64}, sg::StateGrid)
-    # check if current state is within state space
-    for d in eachindex(x)
-        if x[d] < sg.state_grid.cutPoints[d][1] || x[d] > sg.state_grid.cutPoints[d][end]
-            val_x = -1e6
-            return val_x
-        end
-    end
-
-    # interpolate value at given state
-    val_x = GridInterpolations.interpolate(sg.state_grid, value_array, x)
-
-    return val_x
-end
-
 function interp_value_NN(x, value_array, sg)
     # check if current state is within state space
     for d in eachindex(x)
@@ -210,7 +195,9 @@ function multi2single_ind(ind_m, sg)
     return ind_s
 end
 
-# NOTE: LazySets functions used here
+#=
+NOTE: LazySets functions used here
+=#
 
 # workspace checker
 function in_workspace(x, env, veh)
@@ -299,7 +286,6 @@ function VPolyCircle(center, radius)
 
     return circular_polygon
 end
-
 
 function get_iterators(state_space,dx_sizes)
 
