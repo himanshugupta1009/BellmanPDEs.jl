@@ -1,3 +1,12 @@
+using StaticArrays
+using GridInterpolations
+using LazySets
+using Random
+using JLD2
+
+include("definitions.jl")
+include("planner.jl")
+include("solver.jl")
 include("utils.jl")
 
 #=
@@ -47,18 +56,7 @@ function get_HJB_vehicle()
     return veh_body
 end
 
-function get_state_grid()
-    length = 20.0
-    breadth = 20.0
-    max_speed = 2.0
-    state_space = SVector{4,Tuple{Float64,Float64}}([
-                    (0.0,length), #Range in x
-                    (0.0,breadth), #Range in y
-                    (-pi,pi), #Range in theta
-                    (0.0,max_speed) #Range in v
-                    ])
-    dx_sizes = SVector(0.5, 0.5, deg2rad(18.0), 1/3)
-    angle_wrap = SVector(false, false, true, false)
+function get_state_grid(state_space,dx_sizes,angle_wrap)
     sg = define_state_grid(state_space, dx_sizes, angle_wrap)
     return sg
 end
@@ -83,7 +81,8 @@ function rollout_get_actions(x, Dt, veh)
     phi_lim_n = atan(Dtheta_lim * 1/Dt * 1/abs(vn) * veh.l)
     phi_lim_n = clamp(phi_lim_n, 0.0, phi_max)
 
-    actions = SVector{21, SVector{2, Float64}}(
+    num_actions = 21
+    actions = SVector{num_actions, SVector{2, Float64}}(
         (-phi_lim_n, -Dv_lim),        # Dv = -Dv
         (-2/3*phi_lim_n, -Dv_lim),
         (-1/3*phi_lim_n, -Dv_lim),
@@ -110,10 +109,17 @@ function rollout_get_actions(x, Dt, veh)
         )
 
     # ia_set = collect(1:length(actions))
-    ia_set = SVector{21,Int}(1:length(actions))
+    ia_set = SVector{num_actions,Int}(1:num_actions)
 
     return actions,ia_set
 end
+#=
+function test_dynamic_dispatch(v::VehicleBody,func::Function)
+    s = SVector(2.0,2.0,0.0,1.0)
+    dt = 0.5
+    a,i = func(s,dt,v)
+end
+=#
 
 function rollout_get_cost(x, a, Dt, veh)
     return -Dt
@@ -123,13 +129,25 @@ function run_HJB(flag)
     Dt = 0.5
     Dval_tol = 0.1
     max_solve_steps = 200
+    length = 20.0
+    breadth = 20.0
+    max_speed = 2.0
+    state_space = SVector{4,Tuple{Float64,Float64}}([
+                    (0.0,length), #Range in x
+                    (0.0,breadth), #Range in y
+                    (-pi,pi), #Range in theta
+                    (0.0,max_speed) #Range in v
+                    ])
+    dx_sizes = SVector(0.5, 0.5, deg2rad(18.0), 1/3)
+    angle_wrap = SVector(false, false, true, false)
     HJB_env = get_HJB_environment()
     HJB_veh = get_HJB_vehicle()
-    HJB_sg = get_state_grid()
+    HJB_sg = get_state_grid(state_space,dx_sizes,angle_wrap)
 
     if(flag)
+        iterators = get_iterators(state_space,dx_sizes)
         Q_array,V_array = solve_HJB_PDE(rollout_get_actions, rollout_get_cost, Dt, HJB_env, HJB_veh,
-                                            HJB_sg, Dval_tol, max_solve_steps)
+                                            HJB_sg,iterators, Dval_tol, max_solve_steps)
         R = (Dt = Dt,
                 V = V_array,
                 Q = Q_array,
@@ -148,3 +166,8 @@ function run_HJB(flag)
         return R
     end
 end
+
+#=
+RG = run_HJB(true);
+RG = run_HJB(false);
+=#

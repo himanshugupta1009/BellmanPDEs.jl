@@ -1,10 +1,10 @@
 # solver.jl
 
 # main function to iteratively calculate HJB value function
-function solve_HJB_PDE(get_actions::Function, get_reward::Function, Dt, env, veh, sg, Dval_tol, max_solve_steps)
+function solve_HJB_PDE(get_actions::Function, get_reward::Function, Dt, env, veh, sg, ind_gs_array, Dval_tol, max_solve_steps)
     # initialize data arrays
     println("initializing ---")
-    q_value_array, value_array, set_array = initialize_value_array(Dt, get_actions, sg, env, veh)
+    q_value_array, value_array, set_array = initialize_value_array(Dt, get_actions, sg, env, veh, ind_gs_array)
 
     num_gs_sweeps = 2^dimensions(sg.state_grid)
 
@@ -15,7 +15,7 @@ function solve_HJB_PDE(get_actions::Function, get_reward::Function, Dt, env, veh
     for solve_step in 1:max_solve_steps
         Dval_max = 0.0
 
-        for ind_m in sg.ind_gs_array[gs_step]
+        for ind_m in ind_gs_array[gs_step]
             ind_s = multi2single_ind(ind_m, sg)     # SPEED: able to speed up? haven't looked
 
             # if the node is in free space, update its value
@@ -68,7 +68,7 @@ function update_node_value(x, get_actions::Function, get_reward::Function, Dt, v
 end
 
 # initialize arrays
-function initialize_value_array(Dt, get_actions::Function, sg, env, veh)
+function initialize_value_array(Dt, get_actions::Function, sg, env, veh, ind_gs_array)
     x = sg.state_list_static[1]
     _, ia_set = get_actions(x, Dt, veh)
 
@@ -80,7 +80,7 @@ function initialize_value_array(Dt, get_actions::Function, sg, env, veh)
     println("total grid nodes = ", length(sg.state_grid))
 
     init_step = 1
-    for ind_m in sg.ind_gs_array[1]
+    for ind_m in ind_gs_array[1]
         ind_s = multi2single_ind(ind_m, sg)
         x = sg.state_list_static[ind_s]
 

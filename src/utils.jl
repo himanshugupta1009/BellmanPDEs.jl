@@ -11,7 +11,10 @@ NOTE: needs to be general for:
   - qval_x_array - value produced by each of actions tested (array of Float64, length(ia_set))
 =#
 
-function optimize_action(x, ia_set, actions, get_reward::Function, Dt, value_array, veh, sg)
+function optimize_action(x::SVector{4,Float64}, ia_set::SVector{L,Int}, actions::SVector{M,N},
+                    get_reward::Function,Dt::Float64,
+                    value_array::Array{Float64,1}, veh::VehicleBody, sg::StateGrid) where {L,M,N}
+
     qval_x_array = zeros(Float64, length(ia_set))
 
     # iterate through all given action indices
@@ -41,9 +44,36 @@ RG = run_HJB(false);
 function test_optimize_actions(RG)
     state_k = SVector(2.0,2.0,0.0,1.0)
     actions, ia_set = RG[:f_act](state_k, RG[:Dt], RG[:veh])
-    optimize_action(state_k, ia_set, actions, RG[:f_cost], RG[:Dt], RG[:V], RG[:veh], RG[:sg].state_grid)
+    optimize_action(state_k, ia_set, actions, RG[:f_cost], RG[:Dt], RG[:V], RG[:veh], RG[:sg])
 end
 
+function new_optimize_action(x::SVector{4,Float64}, Dv_RC::NTuple{K,Float64}, ia_set::SVector{L,Int},
+                    actions::SVector{M,N},get_reward::Function,Dt::Float64,
+                    value_array::Array{Float64,1}, veh::VehicleBody, sg::StateGrid) where {K,L,M,N}
+
+    best_val = -Inf
+    best_action_index = -1
+    # iterate through all given action indices
+    for ja in eachindex(ia_set)
+        a = actions[ia_set[ja]]
+        if(a[2] in Dv_RC)
+            reward_x_a = get_reward(x, a, Dt, veh)
+            x_p, _ = propagate_state(x, a, Dt, veh)
+            val_xp = reward_x_a + interp_value(x_p, value_array, sg)
+            if(val_xp > best_val)
+                best_val = val_xp
+                best_action_index = ja
+            end
+        end
+    end
+
+    return best_val, best_action_index
+end
+function test_new_optimize_actions(RG)
+    state_k = SVector(2.0,2.0,0.0,1.0)
+    actions, ia_set = RG[:f_act](state_k, RG[:Dt], RG[:veh])
+    new_optimize_action(state_k, 0.5, ia_set, actions, RG[:f_cost], RG[:Dt], RG[:V], RG[:veh], RG[:sg])
+end
 
 function old_propagate_state(x_k, a_k, Dt, veh)
     # define number of substeps used for integration
@@ -115,17 +145,17 @@ function discrete_time_EoM(x_k, a_k, Dt, veh)
     return x_k1
 end
 
-function interp_value(x::AbstractVector, value_array::Vector{Float64}, grid::RectangleGrid)
+function interp_value(x::AbstractVector, value_array::Vector{Float64}, sg::StateGrid)
     # check if current state is within state space
     for d in eachindex(x)
-        if x[d] < grid.cutPoints[d][1] || x[d] > grid.cutPoints[d][end]
+        if x[d] < sg.state_grid.cutPoints[d][1] || x[d] > sg.state_grid.cutPoints[d][end]
             val_x = -1e6
             return val_x
         end
     end
 
     # interpolate value at given state
-    val_x = GridInterpolations.interpolate(grid, value_array, x)
+    val_x = GridInterpolations.interpolate(sg.state_grid, value_array, x)
 
     return val_x
 end
@@ -133,7 +163,7 @@ end
 RG = run_HJB(false);
 function test_interp_value(RG)
     state_k = SVector(2.4,1.7,0.3,1.0)
-    interp_value(state_k,RG[:V],RG[:sg].state_grid)
+    interp_value(state_k,RG[:V],RG[:sg])
 end
 =#
 

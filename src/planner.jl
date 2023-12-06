@@ -116,13 +116,23 @@ function approx_HJB_policy(x_k, Dv_RC, safe_value_lim, get_actions::Function, ge
     return a_ro
 end
 
-function reactive_policy(x_k, Dv_RC, safe_value_lim, get_actions::Function, get_reward::Function, Dt, q_value_array, value_array, veh, sg)
+function reactive_policy(x_k::SVector{4,Float64}, Dv_RC::Float64, safe_value_lim::Float64,
+                        get_actions::Function, get_reward::Function,
+                        Dt::Float64, q_value_array::Array{Array{Float64, 1}, 1},
+                        value_array::Array{Float64,1}, veh::VehicleBody, sg::StateGrid)
     # get actions for current state
     actions, ia_set = get_actions(x_k, Dt, veh)
-
+    # mask = MVector{length(ia_set),Bool}(undef)
+    # for i in 1:length(ia_set)
+    #     mask[i] = true
+    # end
+    # SVector{length(ia_set),Bool}
     # A) find best phi for Dv given by reactive controller ---
-    ia_RC_set = findall(a -> a[2] == Dv_RC, actions)
-    qval_x_RC_array, val_x_RC, ia_RC = optimize_action(x_k, ia_RC_set, actions, get_reward, Dt, value_array, veh, sg)
+    # ia_RC_set = findall(a -> a[2] == Dv_RC, actions)
+    # ia = SVector{length(ia_RC_set),Int}(ia_RC_set)
+    # ia = SVector(ia_RC_set...)
+
+    qval_x_RC_array, val_x_RC, ia_RC = optimize_action(x_k, ia_set, actions, get_reward, Dt, value_array, veh, sg)
 
     # check if [Dv_RC, phi_best_RC] is a valid action in static environment ---
     if val_x_RC >= safe_value_lim
@@ -131,8 +141,28 @@ function reactive_policy(x_k, Dv_RC, safe_value_lim, get_actions::Function, get_
         return a_ro, qval_x_RC_array
     end
 
+    # mask = MVector{length(ia_set),Bool}(undef)
+    # for i in 1:length(ia_set)
+    #     if(i%2==0)
+    #         mask[i] .= true
+    #     else
+    #         mask[i] .= false
+    #     end
+    # end
+    # mask = nothing
+
+    total_num_actions = length(ia_set)
+    mask = MVector{total_num_actions,Bool}(undef)
+    for i in 1:length(ia_set)
+        if(i%2==0)
+            mask[i] .= true
+        else
+            mask[i] .= false
+        end
+    end
+
     # B) if RC action is not valid, then find pure HJB best action ---
-    qval_x_HJB_array, _, ia_HJB = optimize_action(x_k, ia_set, actions, get_reward, Dt, value_array, veh, sg)
+    qval_x_HJB_array, val_x_RC, ia_HJB = optimize_action(x_k, ia_set, actions, get_reward, Dt, value_array, veh, sg)
 
     a_ro = actions[ia_HJB]
 
@@ -145,7 +175,41 @@ function test_reactive_policy(RG)
     delta_speed = 0.5
     safe_value_lim = 750.0
     one_time_step = 0.5
-    reactive_policy(state_k,delta_speed,safe_value_lim,RG[:f_act],RG[:f_cost],one_time_step,RG[:Q],RG[:V],RG[:veh],RG[:sg].state_grid)
+    reactive_policy(state_k,delta_speed,safe_value_lim,RG[:f_act],RG[:f_cost],one_time_step,RG[:Q],RG[:V],RG[:veh],RG[:sg])
+end
+=#
+
+function better_reactive_policy(x_k::SVector{4,Float64}, Dv_RC::Float64, safe_value_lim::Float64,
+                        get_actions::Function, get_reward::Function,
+                        Dt::Float64, q_value_array::Array{Array{Float64, 1}, 1},
+                        value_array::Array{Float64,1}, veh::VehicleBody, sg::StateGrid)
+    # get actions for current state
+    actions, ia_set = get_actions(x_k, Dt, veh)
+
+    velocity_set = (Dv_RC)
+    val_x_RC, ia_RC = new_optimize_action(x_k, velocity_set, ia_set, actions, get_reward, Dt, value_array, veh, sg)
+
+    # check if [Dv_RC, phi_best_RC] is a valid action in static environment ---
+    # if val_x_RC >= safe_value_lim
+    #     a_ro = actions[ia_RC]
+    #     return a_ro
+    # end
+
+    # B) if RC action is not valid, then find pure HJB best action ---
+    velocity_set = (0.0,-Dv_RC)
+    val_x_RC, ia_HJB = new_optimize_action(x_k, velocity_set, ia_set, actions, get_reward, Dt, value_array, veh, sg)
+    a_ro = actions[ia_HJB]
+
+    return a_ro
+end
+#=
+RG = run_HJB(false);
+function test_better_reactive_policy(RG)
+    state_k = SVector(2.0,2.0,0.0,1.0)
+    delta_speed = 0.5
+    safe_value_lim = 750.0
+    one_time_step = 0.5
+    better_reactive_policy(state_k,delta_speed,safe_value_lim,RG[:f_act],RG[:f_cost],one_time_step,RG[:Q],RG[:V],RG[:veh],RG[:sg])
 end
 =#
 
