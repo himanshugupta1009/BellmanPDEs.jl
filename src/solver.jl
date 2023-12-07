@@ -1,10 +1,12 @@
 # solver.jl
 
 # main function to iteratively calculate HJB value function
-function solve_HJB_PDE(get_actions::Function, get_reward::Function, Dt, env, veh, sg, ind_gs_array, Dval_tol, max_solve_steps)
+function solve_HJB_PDE(get_actions::Function, get_reward::Function, Dt, env, veh, sg,
+                        state_list_static, ind_gs_array, Dval_tol, max_solve_steps)
     # initialize data arrays
     println("initializing ---")
-    q_value_array, value_array, set_array = initialize_value_array(Dt, get_actions, sg, env, veh, ind_gs_array)
+    q_value_array, value_array, set_array = initialize_value_array(Dt, get_actions, sg, env, veh,
+                                                            state_list_static, ind_gs_array)
 
     num_gs_sweeps = 2^dimensions(sg.state_grid)
 
@@ -20,7 +22,7 @@ function solve_HJB_PDE(get_actions::Function, get_reward::Function, Dt, env, veh
 
             # if the node is in free space, update its value
             if set_array[ind_s] == 2
-                x = sg.state_list_static[ind_s]
+                x = state_list_static[ind_s]
 
                 # store previous value
                 v_kn1 = value_array[ind_s]
@@ -68,8 +70,8 @@ function update_node_value(x, get_actions::Function, get_reward::Function, Dt, v
 end
 
 # initialize arrays
-function initialize_value_array(Dt, get_actions::Function, sg, env, veh, ind_gs_array)
-    x = sg.state_list_static[1]
+function initialize_value_array(Dt, get_actions::Function, sg, env, veh, state_list_static, ind_gs_array)
+    x = state_list_static[1]
     _, ia_set = get_actions(x, Dt, veh)
 
     q_value_array = Vector{Vector{Float64}}(undef, length(sg.state_grid))
@@ -82,7 +84,7 @@ function initialize_value_array(Dt, get_actions::Function, sg, env, veh, ind_gs_
     init_step = 1
     for ind_m in ind_gs_array[1]
         ind_s = multi2single_ind(ind_m, sg)
-        x = sg.state_list_static[ind_s]
+        x = state_list_static[ind_s]
 
         if in_workspace(x, env, veh) == false || in_obstacle_set(x, env, veh) == true
             q_value_array[ind_s] = -1e6 * ones(length(ia_set))

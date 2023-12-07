@@ -22,10 +22,9 @@ struct VehicleBody
     v_max::Float64
 end
 
-struct StateGrid{P,Q,R}
+struct StateGrid{P,Q}
     state_grid::RectangleGrid{P}
-    state_list_static::Q
-    angle_wrap_array::SVector{R,Bool}
+    angle_wrap_array::SVector{Q,Bool}
 end
 
 # defines environment geometry
@@ -61,12 +60,7 @@ function define_state_grid(state_space, dx_sizes, angle_wrap)
     #Define a RectangleGrid for interpolation
     state_grid = RectangleGrid(state_iters...)
 
-    state_list = SVector{N,Float64}[]
-    for state in state_grid
-        push!(state_list, SA[state...])
-    end
-
-    sg = StateGrid(state_grid, state_list, angle_wrap)
+    sg = StateGrid(state_grid, angle_wrap)
     return sg
 end
 #=

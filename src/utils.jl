@@ -320,3 +320,24 @@ function get_iterators(state_space,dx_sizes)
 
     return ind_gs_array
 end
+
+function get_all_states(rectangle_grid)
+
+    s = rectangle_grid[1]
+    num_dimensions = length(s)
+    #=
+    Or you can run this
+    num_dimensions = typeof(rectangle_grid).parameters[1]
+    =#
+
+    state_list = collect(map(SVector{num_dimensions,Float64},rectangle_grid))
+
+    #=
+    Or you can run this
+    state_list = SVector{num_dimensions,Float64}[]
+    for state in state_grid
+        push!(state_list, SA[state...])
+    end
+    =#
+    return state_list
+end

@@ -20,12 +20,12 @@ workspace = VPolygon(
 So, it seems best if input to VPolygon is a vector of SVectors while defining the polygon.
 =#
 function get_HJB_environment()
-    length = 20.0
-    breadth = 20.0
+    l = 20.0
+    b = 20.0
     workspace = VPolygon([ SVector(0.0, 0.0),
-                           SVector(length, 0.0),
-                           SVector(length, breadth),
-                           SVector(0.0, breadth)]
+                           SVector(l, 0.0),
+                           SVector(l, b),
+                           SVector(0.0,b)]
                             )
     #Assumption - Circular obstacles with some known radius (x,y,r)
     workspace_obstacles =  SVector{4,Tuple{Float64,Float64,Float64}}([ (5.125, 4.875, 1.125),(6.5, 15.25, 1.5),(16.25, 11.0, 1.125),(10.0, 9.5, 2.25) ])
@@ -34,10 +34,10 @@ function get_HJB_environment()
     for obs in workspace_obstacles
         push!(obstacle_list, VPolyCircle((obs[1],obs[2]),obs[3]+0.1))
     end
-    obstacle_list = SVector{4,VPolygon{Float64, SVector{2, Float64}}}(obstacle_list)
+    obstacle_list = SVector{length(workspace_obstacles),VPolygon{Float64, SVector{2, Float64}}}(obstacle_list)
 
     workspace_goal = (13.5,19.0)
-    goal = VPolyCircle((workspace_goal[1], workspace_goal[2]), 1.0)
+    goal = VPolyCircle(workspace_goal, 1.0)
 
     env = define_environment(workspace, obstacle_list, goal)
     return env
@@ -129,16 +129,16 @@ function run_HJB(flag)
     Dt = 0.5
     Dval_tol = 0.1
     max_solve_steps = 200
-    length = 20.0
-    breadth = 20.0
+    l = 20.0
+    b = 20.0
     max_speed = 2.0
     state_space = SVector{4,Tuple{Float64,Float64}}([
-                    (0.0,length), #Range in x
-                    (0.0,breadth), #Range in y
+                    (0.0,l), #Range in x
+                    (0.0,b), #Range in y
                     (-pi,pi), #Range in theta
                     (0.0,max_speed) #Range in v
                     ])
-    dx_sizes = SVector(0.5, 0.5, deg2rad(18.0), 1/3)
+    dx_sizes = SVector(0.5, 0.5, deg2rad(18.0), 0.5)
     angle_wrap = SVector(false, false, true, false)
     HJB_env = get_HJB_environment()
     HJB_veh = get_HJB_vehicle()
@@ -146,8 +146,9 @@ function run_HJB(flag)
 
     if(flag)
         iterators = get_iterators(state_space,dx_sizes)
+        all_states = get_all_states(HJB_sg.state_grid)
         Q_array,V_array = solve_HJB_PDE(rollout_get_actions, rollout_get_cost, Dt, HJB_env, HJB_veh,
-                                            HJB_sg,iterators, Dval_tol, max_solve_steps)
+                                            HJB_sg, all_states, iterators, Dval_tol, max_solve_steps)
         R = (Dt = Dt,
                 V = V_array,
                 Q = Q_array,
