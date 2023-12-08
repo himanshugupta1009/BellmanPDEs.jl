@@ -8,6 +8,7 @@ include("definitions.jl")
 include("planner.jl")
 include("solver.jl")
 include("utils.jl")
+include("modifiedGIcode.jl")
 
 #=
 The weird thing with VPolygon is that it needs a Vector input, or else it fails.
