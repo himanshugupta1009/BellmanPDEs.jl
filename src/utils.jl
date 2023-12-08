@@ -10,8 +10,8 @@ NOTE: needs to be general for:
   - ia_opt - action tested that produced best value (single Int)
   - qval_x_array - value produced by each of actions tested (array of Float64, length(ia_set))
 =#
-
-function optimize_action(x::SVector{4,Float64}, ia_set::SVector{L,Int}, actions::SVector{M,N},
+# ia_set::SVector{L,Int}
+function optimize_action(x::SVector{4,Float64}, ia_set::Vector{Int}, actions::SVector{M,N},
                     get_reward::Function,Dt::Float64,
                     value_array::Array{Float64,1}, veh::VehicleBody, sg::StateGrid) where {L,M,N}
 
@@ -155,7 +155,8 @@ function interp_value(x::AbstractVector, value_array::Vector{Float64}, sg::State
     end
 
     # interpolate value at given state
-    val_x = GridInterpolations.interpolate(sg.state_grid, value_array, x)
+    # val_x = GridInterpolations.interpolate(sg.state_grid, value_array, x)
+    val_x = my_interpolate(sg.state_grid, value_array, x)
 
     return val_x
 end

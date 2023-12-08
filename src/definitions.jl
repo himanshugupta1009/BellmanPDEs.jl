@@ -12,12 +12,22 @@ struct Environment{P,Q,R}
     goal::R
 end
 
-struct VehicleBody
+# struct VehicleBody{G<:VPolygon}
+#     l::Float64
+#     body_dims::SVector{2,Float64}
+#     radius_vb::Float64
+#     origin_to_cent::SVector{2,Float64}
+#     origin_body::G
+#     phi_max::Float64
+#     v_max::Float64
+# end
+
+struct VehicleBody{P,Q}
     l::Float64
     body_dims::SVector{2,Float64}
     radius_vb::Float64
     origin_to_cent::SVector{2,Float64}
-    origin_body::VPolygon
+    origin_body::VPolygon{P,Q}
     phi_max::Float64
     v_max::Float64
 end

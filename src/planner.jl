@@ -122,26 +122,26 @@ function reactive_policy(x_k::SVector{4,Float64}, Dv_RC::Float64, safe_value_lim
                         value_array::Array{Float64,1}, veh::VehicleBody, sg::StateGrid)
     # get actions for current state
     actions, ia_set = get_actions(x_k, Dt, veh)
-
+    # println("HG")
     # A) find best phi for Dv given by reactive controller ---
-    # ia_RC_set = findall(a -> a[2] == Dv_RC, actions)
+    ia_RC_set = findall(a -> a[2] == Dv_RC, actions)
     # ia_RC_set = ia_set
     # ia = SVector{length(ia_RC_set),Int}(ia_RC_set)
     # ia = SVector(ia_RC_set...)
 
-    total_num_actions = length(ia_set)
-    # total_num_actions = 7
-    mask = MVector{total_num_actions,Bool}(undef)
-    for i in 1:total_num_actions
-    # for i in eachindex(mask)
-        if(i%2==0)
-            mask[i] = true
-        else
-            mask[i] = false
-        end
-    end
+    # total_num_actions = length(ia_set)
+    # # # total_num_actions = 7
+    # mask = SVector{total_num_actions,Int}(ia_set)
+    # for i in 1:total_num_actions
+    # # for i in eachindex(mask)
+    #     if(i%2==0)
+    #         # mask[i] = true
+    #     else
+    #         # mask[i] = false
+    #     end
+    # end
 
-    qval_x_RC_array, val_x_RC, ia_RC = optimize_action(x_k, ia_set, actions, get_reward, Dt, value_array, veh, sg)
+    qval_x_RC_array, val_x_RC, ia_RC = optimize_action(x_k, ia_RC_set, actions, get_reward, Dt, value_array, veh, sg)
 
     # ia_RC_set = findall(a -> a[2] == Dv_RC, actions)
     # ia = SVector{length(ia_RC_set),Int}(ia_RC_set)
