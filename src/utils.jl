@@ -221,7 +221,6 @@ function in_obstacle_set(x, env, veh)
         # if isempty(intersection(veh_body, obstacle)) == false || isempty(intersection(obstacle, veh_body)) == false
         #     return true
         # end
-
         if isdisjoint(veh_body, obstacle) == false
             return true
         end
@@ -266,12 +265,9 @@ end
 # vehicle body transformation function
 function state_to_body_circle(x, veh)
     d = veh.origin_to_cent[1]
-
     xp_c = x[1] + d * cos(x[3])
     yp_c = x[2] + d * sin(x[3])
-
-    body_circle = VPolyCircle([xp_c, yp_c], veh.radius_vb)
-
+    body_circle = VPolyCircle((xp_c, yp_c), veh.radius_vb)
     return body_circle
 end
 
