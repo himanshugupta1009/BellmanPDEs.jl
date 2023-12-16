@@ -15,13 +15,11 @@ export interp_value, in_target_set, in_obstacle_set, in_workspace, state_to_body
 export discrete_time_EoM, propagate_state, optimize_action, get_iterators, get_all_states
 export plot_HJB_value, plot_HJB_path, plot_path_value
 export interpolate
-export my_interpolate
 
 include("definitions.jl")
 include("solver.jl")
 include("planner.jl")
 include("utils.jl")
 include("plotting.jl")
-include("modifiedGIcode.jl")
 
 end
