@@ -7,7 +7,6 @@ function solve_HJB_PDE(get_actions::Function, get_reward::Function, Dt, env, veh
     println("initializing ---")
     q_value_array, value_array, set_array = initialize_value_array(Dt, get_actions, sg, env, veh,
                                                             state_list_static, ind_gs_array)
-    return
 
     num_gs_sweeps = 2^dimensions(sg.state_grid)
 
@@ -87,8 +86,6 @@ function initialize_value_array(Dt, get_actions::Function, sg, env, veh, state_l
 
         ind_s = multi2single_ind(ind_m, sg)
         x = state_list_static[ind_s]
-        println(ind_m, " ", ind_s)
-
 
         if in_workspace(x, env, veh) == false || in_obstacle_set(x, env, veh) == true
             q_value_array[ind_s] = -1e6 * ones(length(ia_set))
@@ -106,10 +103,8 @@ function initialize_value_array(Dt, get_actions::Function, sg, env, veh, state_l
             set_array[ind_s] = 2
         end
 
-        # println(init_step)
         if init_step % 1000 == 0
             println("initializing grid index: ", init_step)
-            break
         end
 
         init_step += 1

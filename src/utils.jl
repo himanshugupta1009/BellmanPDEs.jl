@@ -155,8 +155,7 @@ function interp_value(x::AbstractVector, value_array::Vector{Float64}, sg::State
     end
 
     # interpolate value at given state
-    # val_x = GridInterpolations.interpolate(sg.state_grid, value_array, x)
-    val_x = my_interpolate(sg.state_grid, value_array, x)
+    val_x = GridInterpolations.interpolate(sg.state_grid, value_array, x)
 
     return val_x
 end
@@ -166,6 +165,10 @@ function test_interp_value(RG)
     state_k = SVector(2.4,1.7,0.3,1.0)
     interp_value(state_k,RG[:V],RG[:sg])
 end
+
+@profiler for i in 1:100000 test_interp_value(RG) end
+using BenchmarkTools
+@btime test_interp_value($RG)
 =#
 
 function interp_value_NN(x, value_array, sg)

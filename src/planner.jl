@@ -81,6 +81,82 @@ function HJB_policy(x_k, Dv_RC, safe_value_lim, get_actions::Function, get_rewar
         return a_ro, qval_x_HJB_array
     end
 end
+function test_HJB_policy(RG)
+    # state_k = SVector(2.0,2.0,0.0,1.0)
+    state_k = SVector(10.769217598602896, 18.16928247780056, 3.0867114686412167, 2.0)
+    delta_speed = 0.5
+    safe_value_lim = 750.0
+    one_time_step = 0.5
+    HJB_policy(state_k,delta_speed,safe_value_lim,RG[:f_act],RG[:f_cost],one_time_step,RG[:Q],RG[:V],RG[:veh],RG[:sg])
+end
+#=
+RG = run_HJB(false);
+@profiler for i in 1:10000 test_HJB_policy(RG) end
+using BenchmarkTools
+@btime test_HJB_policy($RG)
+@benchmark test_HJB_policy(RG)
+=#
+
+function better_HJB_policy(x_k, Dv_RC, get_actions::Function, get_reward::Function, Dt, q_value_array, value_array, veh, sg)
+
+    #=
+    Logic that Will used for this function
+    1) If current vehicle velocity is 0.0, find the best action where dv>0.0 (dv=0.5 four our case)
+    2) If current vehicle velocity is >0.0, find the best action where dv is either 0.0 or >0.0
+    =#
+
+    # get actions for current state
+    actions, ia_set = get_actions(x_k, Dt, veh)
+
+    if x_k[4] == 0.0
+        velocity_set = Tuple(Dv_RC)
+        val_x_RC, ia_RC = new_optimize_action(x_k, velocity_set, ia_set, actions, get_reward, Dt, value_array, veh, sg)
+        a_ro = actions[ia_RC]
+        return a_ro
+    elseif x_k[4] == abs(Dv_RC)
+        velocity_set = (0.0,Dv_RC)
+        val_x_RC, ia_RC = new_optimize_action(x_k, velocity_set, ia_set, actions, get_reward, Dt, value_array, veh, sg)
+        a_ro = actions[ia_RC]
+        return a_ro
+    else
+        velocity_set = (0.0,Dv_RC,-Dv_RC)
+        val_x_RC, ia_RC = new_optimize_action(x_k, velocity_set, ia_set, actions, get_reward, Dt, value_array, veh, sg)
+        a_ro = actions[ia_RC]
+        return a_ro
+    end
+end
+function test_better_HJB_policy(RG)
+    # state_k = SVector(2.0,2.0,0.0,1.0)
+    state_k = SVector(10.769217598602896, 18.16928247780056, 3.0867114686412167, 2.0)
+    delta_speed = 0.5
+    one_time_step = 0.5
+    better_HJB_policy(state_k,delta_speed,RG[:f_act],RG[:f_cost],one_time_step,RG[:Q],RG[:V],RG[:veh],RG[:sg])
+end
+#=
+RG = run_HJB(false);
+@profiler for i in 1:10000 test_better_HJB_policy(RG) end
+using BenchmarkTools
+@btime test_better_HJB_policy($RG)
+@benchmark test_better_HJB_policy($RG)
+=#
+
+function test_correctness(RG)
+    delta_speed = 0.5
+    one_time_step = 0.5
+    safe_value_lim = 750.0
+
+    for i in 1:10000
+        state_k = SVector(rand()*20,rand()*20,rand()*pi,rand([0.0,0.5,1.0,2.0]))
+        a = better_HJB_policy(state_k,delta_speed,RG[:f_act],RG[:f_cost],one_time_step,RG[:Q],RG[:V],RG[:veh],RG[:sg])
+        b,s = HJB_policy(state_k,delta_speed,safe_value_lim,RG[:f_act],RG[:f_cost],one_time_step,RG[:Q],RG[:V],RG[:veh],RG[:sg])
+        not_valid_state = all( i-> i<-10000, s)
+        if( !not_valid_state && a!=b )
+            println(state_k)
+            break
+        end
+    end
+end
+
 
 function approx_HJB_policy(x_k, Dv_RC, safe_value_lim, get_actions::Function, get_reward::Function, Dt, q_value_array, value_array, veh, sg)
     actions, ia_set = get_actions(x_k, Dt, veh)
@@ -125,6 +201,7 @@ function reactive_policy(x_k::SVector{4,Float64}, Dv_RC::Float64, safe_value_lim
     # println("HG")
     # A) find best phi for Dv given by reactive controller ---
     ia_RC_set = findall(a -> a[2] == Dv_RC, actions)
+    ia_RC_set = SVector{length(ia_RC_set),Int}(ia_RC_set)
     # ia_RC_set = ia_set
     # ia = SVector{length(ia_RC_set),Int}(ia_RC_set)
     # ia = SVector(ia_RC_set...)
@@ -161,9 +238,6 @@ function reactive_policy(x_k::SVector{4,Float64}, Dv_RC::Float64, safe_value_lim
 
     return a_ro, qval_x_HJB_array
 end
-#=
-RG = run_HJB(false);
-=#
 function test_reactive_policy(RG)
     state_k = SVector(2.0,2.0,0.0,1.0)
     delta_speed = 0.5
@@ -171,6 +245,12 @@ function test_reactive_policy(RG)
     one_time_step = 0.5
     reactive_policy(state_k,delta_speed,safe_value_lim,RG[:f_act],RG[:f_cost],one_time_step,RG[:Q],RG[:V],RG[:veh],RG[:sg])
 end
+#=
+RG = run_HJB(false);
+@profiler for i in 1:10000 test_reactive_policy(RG) end
+using BenchmarkTools
+@btime test_reactive_policy($RG)
+=#
 
 function better_reactive_policy(x_k::SVector{4,Float64}, Dv_RC::Float64, safe_value_lim::Float64,
                         get_actions::Function, get_reward::Function,
@@ -195,9 +275,6 @@ function better_reactive_policy(x_k::SVector{4,Float64}, Dv_RC::Float64, safe_va
 
     return a_ro
 end
-#=
-RG = run_HJB(false);
-=#
 function test_better_reactive_policy(RG)
     state_k = SVector(2.0,2.0,0.0,1.0)
     delta_speed = 0.5
@@ -205,6 +282,12 @@ function test_better_reactive_policy(RG)
     one_time_step = 0.5
     better_reactive_policy(state_k,delta_speed,safe_value_lim,RG[:f_act],RG[:f_cost],one_time_step,RG[:Q],RG[:V],RG[:veh],RG[:sg])
 end
+#=
+RG = run_HJB(false);
+@profiler for i in 1:10000 test_reactive_policy(RG) end
+using BenchmarkTools
+@btime test_reactive_policy($RG)
+=#
 
 # ISSUE: need to add q_val return for this function
 function approx_reactive_policy(x_k, Dv_RC, safe_value_lim, get_actions::Function, get_reward::Function, Dt, q_value_array, value_array, veh, sg)
