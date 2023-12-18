@@ -8,7 +8,6 @@ include("new_definitions.jl")
 include("new_planner.jl")
 include("new_solver.jl")
 include("new_utils.jl")
-include("new_modifiedGIcode.jl")
 
 #=
 The weird thing with VPolygon is that it needs a Vector input, or else it fails.
@@ -40,7 +39,7 @@ function get_HJB_environment()
     workspace_goal = (13.5,19.0)
     goal = VPolyCircle(workspace_goal, 1.0)
 
-    env = define_environment(workspace, obstacle_list, goal)
+    env = Environment(workspace, obstacle_list, goal)
     return env
 end
 
@@ -57,12 +56,7 @@ function get_HJB_vehicle()
     return veh_body
 end
 
-function get_state_grid(state_space,dx_sizes)
-    sg = define_state_grid(state_space, dx_sizes)
-    return sg
-end
-
-function rollout_get_actions(x, Dt, veh)
+function HJB_actions(x, Dt, veh)
     # set change in velocity (Dv) limit
     Dv_lim = 0.5
     # set steering angle (phi) limit
@@ -122,18 +116,19 @@ function test_dynamic_dispatch(v::VehicleBody,func::Function)
 end
 =#
 
-function rollout_get_cost(x, a, Dt, veh)
+function HJB_cost(x, a, Dt, veh)
     return -Dt
 end
 
-function run_HJB(flag)
-    Dt = 0.5
-    Dval_tol = 0.1
+function run_new_HJB(flag)
+
+    Δt = 0.5
+    ϵ = 0.1
     max_solve_steps = 200
     l = 20.0
     b = 20.0
     max_speed = 2.0
-    state_space = SVector{4,Tuple{Float64,Float64}}([
+    state_range = SVector{4,Tuple{Float64,Float64}}([
                     (0.0,l), #Range in x
                     (0.0,b), #Range in y
                     (-pi,pi), #Range in theta
@@ -142,36 +137,30 @@ function run_HJB(flag)
     dx_sizes = SVector(0.5, 0.5, deg2rad(18.0), 0.5)
     env = get_HJB_environment()
     veh = get_HJB_vehicle()
-    state_grid = get_state_grid(state_space,dx_sizes)
-    marmot_problem = Problem(env,veh,rollout_get_actions,rollout_get_cost)
+
+    P = Problem(state_range,dx_sizes,env,veh,HJB_actions,HJB_cost)
 
     if(flag)
-        iterators = get_iterators(state_space,dx_sizes)
-        all_states = get_all_states(state_grid)
-        Q_array,V_array,set_array = initialize_value_arrays(state_grid, marmot_problem, all_states, iterators, Dt)
-        solver = HJBSolver(state_grid,max_solve_steps,Dval_tol,Dt)
-        Q_array,V_array = solve_HJB_PDE(rollout_get_actions, rollout_get_cost, Dt, HJB_env, HJB_veh,
-                                            HJB_sg, all_states, iterators, Dval_tol, max_solve_steps)
-        R = (Dt = Dt,
-                V = V_array,
-                Q = Q_array,
-                f_act = rollout_get_actions,
-                f_cost = rollout_get_cost,
-                e = HJB_env,
-                veh = HJB_veh,
-                sg = HJB_sg
+        h = HJBSolver(P,
+                    max_steps=max_solve_steps,
+                    ϵ=ϵ,
+                    Δt=Δt
+                    )
+        solve(h,P)
+        R = (solver = h,
+            problem = P
             )
         d = Dict("rollout_guide"=>R)
-        save("./src/HJB_rollout_guide.jld2",d)
+        save("./src2/HJB_rollout_guide.jld2",d)
         return R
     else
-        s = load("./src/HJB_rollout_guide.jld2")
+        s = load("./src2/HJB_rollout_guide.jld2")
         R = s["rollout_guide"]
         return R
     end
 end
 
 #=
-RG = run_HJB(true);
-RG = run_HJB(false);
+RG = run_new_HJB(true);
+RG = run_new_HJB(false);
 =#

@@ -145,19 +145,16 @@ function discrete_time_EoM(x_k, a_k, Dt, veh)
     return x_k1
 end
 
-function interp_value(x::AbstractVector, value_array::Vector{Float64}, sg::StateGrid)
+function interp_value(grid::RectangleGrid, value_array::Vector{Float64}, x::AbstractVector)
     # check if current state is within state space
     for d in eachindex(x)
-        if x[d] < sg.state_grid.cutPoints[d][1] || x[d] > sg.state_grid.cutPoints[d][end]
+        if x[d] < grid.cutPoints[d][1] || x[d] > grid.cutPoints[d][end]
             val_x = -1e6
             return val_x
         end
     end
-
-    # interpolate value at given state
-    # val_x = GridInterpolations.interpolate(sg.state_grid, value_array, x)
-    val_x = my_interpolate(sg.state_grid, value_array, x)
-
+    #Interpolate value at given state
+    val_x = GridInterpolations.interpolate(grid, value_array, x)
     return val_x
 end
 #=
@@ -187,12 +184,12 @@ function interp_value_NN(x, value_array, sg)
 end
 
 # used for GridInterpolations.jl indexing
-function multi2single_ind(ind_m, grid)
-    ind_s = 1
-    for d in eachindex(ind_m)
-        ind_s += (ind_m[d]-1) * prod(grid.cut_counts[1:(d-1)])
+function multi2single_ind(grid, itr)
+    state_index = 1
+    for d in eachindex(itr)
+        state_index += (itr[d]-1) * prod(grid.cut_counts[1:(d-1)])
     end
-    return ind_s
+    return state_index
 end
 
 #=
@@ -287,12 +284,14 @@ function VPolyCircle(center, radius)
     return circular_polygon
 end
 
-function get_iterators(state_space,dx_sizes)
+function get_iterators(problem::Problem)
 
-    state_iters = [minimum(axis):dx_sizes[i]:maximum(axis) for (i, axis) in enumerate(state_space)]
+    (;state_range,δstate) = problem
+
+    state_iters = [minimum(axis):δstate[i]:maximum(axis) for (i, axis) in enumerate(state_range)]
 
     # Gauss-Seidel sweeping scheme
-    gs_iters = [[0,1] for axis in state_space]
+    gs_iters = [[0,1] for axis in state_range]
     gs_prod = Iterators.product(gs_iters...)
     gs_list = Iterators.map(tpl -> convert(SVector{length(gs_iters), Int}, tpl), gs_prod)
 
@@ -301,7 +300,7 @@ function get_iterators(state_space,dx_sizes)
     for (i_gs, gs) in enumerate(gs_list)
 
         # for axis in sweep = [0,1,1], reverse ind_iters
-        ind_iters = Array{StepRange{Int64, Int64}}(undef, size(state_space,1))
+        ind_iters = Array{StepRange{Int64, Int64}}(undef, size(state_range,1))
         for (i_ax, ax) in enumerate(gs)
             if gs[i_ax] == 0.0
                 # forward
@@ -322,16 +321,13 @@ function get_iterators(state_space,dx_sizes)
 end
 
 function get_all_states(rectangle_grid)
-
-    s = rectangle_grid[1]
-    num_dimensions = length(s)
+    num_dimensions = GridInterpolations.dimensions(rectangle_grid)
     #=
-    Or you can run this
-    num_dimensions = typeof(rectangle_grid).parameters[1]
+    Or you can run one of these
+    1) s = rectangle_grid[1]; num_dimensions = length(s)
+    2) num_dimensions = typeof(rectangle_grid).parameters[1]
     =#
-
     state_list = collect(map(SVector{num_dimensions,Float64},rectangle_grid))
-
     #=
     Or you can run this
     state_list = SVector{num_dimensions,Float64}[]
