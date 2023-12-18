@@ -163,4 +163,12 @@ end
 #=
 RG = run_new_HJB(true);
 RG = run_new_HJB(false);
+
+Verify if the new solver code worked fine
+
+for i in 1:length(RG[:V])
+   if( round(R[:solver].V_values[i],digits=1) != round(RG[:V][i],digits=1))
+       println(i)
+   end
+end
 =#
