@@ -119,7 +119,7 @@ end
 function reactive_policy(x_k::SVector{4,Float64}, Dv_RC::Float64, safe_value_lim::Float64,
                         get_actions::Function, get_reward::Function,
                         Dt::Float64, q_value_array::Array{Array{Float64, 1}, 1},
-                        value_array::Array{Float64,1}, veh::VehicleBody, sg::StateGrid)
+                        value_array::Array{Float64,1}, veh::VehicleBody, sg)
     # get actions for current state
     actions, ia_set = get_actions(x_k, Dt, veh)
     # println("HG")
@@ -175,7 +175,7 @@ end
 function better_reactive_policy(x_k::SVector{4,Float64}, Dv_RC::Float64, safe_value_lim::Float64,
                         get_actions::Function, get_reward::Function,
                         Dt::Float64, q_value_array::Array{Array{Float64, 1}, 1},
-                        value_array::Array{Float64,1}, veh::VehicleBody, sg::StateGrid)
+                        value_array::Array{Float64,1}, veh::VehicleBody, sg)
     # get actions for current state
     actions, ia_set = get_actions(x_k, Dt, veh)
 
@@ -189,7 +189,8 @@ function better_reactive_policy(x_k::SVector{4,Float64}, Dv_RC::Float64, safe_va
     end
 
     # B) if RC action is not valid, then find pure HJB best action ---
-    velocity_set = (0.0,-Dv_RC)
+    # velocity_set = (0.0,-Dv_RC)
+    velocity_set = (-Dv_RC,0.0,Dv_RC)
     val_x_RC, ia_HJB = new_optimize_action(x_k, velocity_set, ia_set, actions, get_reward, Dt, value_array, veh, sg)
     a_ro = actions[ia_HJB]
 

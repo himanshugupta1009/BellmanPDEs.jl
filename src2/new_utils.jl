@@ -13,7 +13,7 @@ NOTE: needs to be general for:
 # ia_set::SVector{L,Int}
 function optimize_action(x::SVector{4,Float64}, ia_set::SVector{L,Int}, actions::SVector{M,N},
                     get_reward::Function,Dt::Float64,
-                    value_array::Array{Float64,1}, veh::VehicleBody, sg::StateGrid) where {L,M,N}
+                    value_array::Array{Float64,1}, veh::VehicleBody, sg) where {L,M,N}
 
     qval_x_array = zeros(Float64, length(ia_set))
 
@@ -49,7 +49,7 @@ end
 
 function new_optimize_action(x::SVector{4,Float64}, Dv_RC::NTuple{K,Float64}, ia_set::SVector{L,Int},
                     actions::SVector{M,N},get_reward::Function,Dt::Float64,
-                    value_array::Array{Float64,1}, veh::VehicleBody, sg::StateGrid) where {K,L,M,N}
+                    value_array::Array{Float64,1}, veh::VehicleBody, sg) where {K,L,M,N}
 
     best_val = -Inf
     best_action_index = -1

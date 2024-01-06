@@ -269,7 +269,8 @@ function better_reactive_policy(x_k::SVector{4,Float64}, Dv_RC::Float64, safe_va
     end
 
     # B) if RC action is not valid, then find pure HJB best action ---
-    velocity_set = (0.0,-Dv_RC)
+    # velocity_set = (0.0,-Dv_RC)
+    velocity_set = (-Dv_RC,0.0,Dv_RC)
     val_x_RC, ia_HJB = new_optimize_action(x_k, velocity_set, ia_set, actions, get_reward, Dt, value_array, veh, sg)
     a_ro = actions[ia_HJB]
 
