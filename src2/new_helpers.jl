@@ -20,8 +20,8 @@ workspace = VPolygon(
 So, it seems best if input to VPolygon is a vector of SVectors while defining the polygon.
 =#
 function get_HJB_environment()
-    l = 30.0
-    b = 30.0
+    l = 100.0
+    b = 100.0
     workspace = VPolygon([ SVector(0.0, 0.0),
                            SVector(l, 0.0),
                            SVector(l, b),
@@ -29,7 +29,8 @@ function get_HJB_environment()
                             )
     #Assumption - Circular obstacles with some known radius (x,y,r)
     # workspace_obstacles =  SVector{4,Tuple{Float64,Float64,Float64}}([ (5.125, 4.875, 1.125),(6.5, 15.25, 1.5),(16.25, 11.0, 1.125),(10.0, 9.5, 2.25) ])
-    workspace_obstacles =  SVector{5,Tuple{Float64,Float64,Float64}}([ (6,9,2),(7,19,1.5),(12,25,1.5),(16,15,2.5),(26,7,1.75) ])
+    # workspace_obstacles =  SVector{5,Tuple{Float64,Float64,Float64}}([ (6,9,2),(7,19,1.5),(12,25,1.5),(16,15,2.5),(26,7,1.75) ])
+    workspace_obstacles =  SVector{1,Tuple{Float64,Float64,Float64}}([(70,30,30)])
 
     obstacle_list = Array{VPolygon,1}()
     for obs in workspace_obstacles
@@ -37,7 +38,7 @@ function get_HJB_environment()
     end
     obstacle_list = SVector{length(workspace_obstacles),VPolygon{Float64, SVector{2, Float64}}}(obstacle_list)
 
-    workspace_goal = (13.5,19.0)
+    workspace_goal = (90.0,75.0)
     goal = VPolyCircle(workspace_goal, 1.0)
 
     env = Environment(workspace, obstacle_list, goal)
@@ -126,8 +127,8 @@ function run_new_HJB(flag)
     Δt = 0.5
     ϵ = 0.1
     max_solve_steps = 200
-    l = 30.0
-    b = 30.0
+    l = 100.0
+    b = 100.0
     max_speed = 2.0
     state_range = SVector{4,Tuple{Float64,Float64}}([
                     (0.0,l), #Range in x
