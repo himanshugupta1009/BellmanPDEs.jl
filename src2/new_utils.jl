@@ -1,151 +1,52 @@
 # utils.jl
 
-#=
-NOTE: needs to be general for:
-  - solving value grid
-  - planning over full action space
-  - planning over smaller action space
 
-  - val_x - best value result out of actions tested (single Float64)
-  - ia_opt - action tested that produced best value (single Int)
-  - qval_x_array - value produced by each of actions tested (array of Float64, length(ia_set))
-=#
-# ia_set::SVector{L,Int}
-function optimize_action(x::SVector{4,Float64}, ia_set::SVector{L,Int}, actions::SVector{M,N},
-                    get_reward::Function,Dt::Float64,
-                    value_array::Array{Float64,1}, veh::VehicleBody, sg) where {L,M,N}
+function propagate_state(state, action, Δt, veh)
+    #=
+    Use the dynamics function to propogate the vehicle from given state
+    and given action for duration Δt
+    =# 
+    new_state = get_next_state(state, action, Δt, veh)
+    return new_state
+end
 
-    qval_x_array = zeros(Float64, length(ia_set))
+function get_next_state(s,a,Δt,veh)
 
-    # iterate through all given action indices
-    for ja in eachindex(ia_set)
-        a = actions[ia_set[ja]]
+    x,y,θ,v = s
+    ϕ,δv = a
+    L = veh.l
 
-        reward_x_a = get_reward(x, a, Dt, veh)
-
-        x_p, _ = propagate_state(x, a, Dt, veh)
-        val_xp = interp_value(x_p, value_array, sg)
-
-        qval_x_array[ja] = reward_x_a + val_xp
+    new_v = v+δv
+    if(new_v == 0.0)
+        sp = SVector{4, Float64}(x,y,θ,new_v)
+        return sp
+    end
+    if(ϕ == 0.0)
+        new_θ = θ
+        new_x = x + new_v*cos(new_θ)*Δt
+        new_y = y + new_v*sin(new_θ)*Δt
+    else
+        new_θ = θ + (new_v * tan(ϕ) * (Δt) / L)
+        new_x = x + ((L/tan(ϕ)) * (sin(new_θ) - sin(θ)))
+        new_y = y + ((L/tan(ϕ)) * (cos(θ) - cos(new_θ)))
     end
 
-    # get value
-    val_x = maximum(qval_x_array)
-
-    # get optimal action index
-    ja_opt = findmax(qval_x_array)[2]
-    ia_opt = ia_set[ja_opt]
-
-    return qval_x_array, val_x, ia_opt
-end
-#=
-RG = run_HJB(false);
-=#
-function test_optimize_actions(RG)
-    state_k = SVector(2.0,2.0,0.0,1.0)
-    actions, ia_set = RG[:f_act](state_k, RG[:Dt], RG[:veh])
-    optimize_action(state_k, ia_set, actions, RG[:f_cost], RG[:Dt], RG[:V], RG[:veh], RG[:sg])
+    wrapped_θ = wrap_between_minus_π_and_π(new_θ)
+    sp = SVector{4, Float64}(new_x,new_y,wrapped_θ,new_v)
+    return sp
 end
 
-function new_optimize_action(x::SVector{4,Float64}, Dv_RC::NTuple{K,Float64}, ia_set::SVector{L,Int},
-                    actions::SVector{M,N},get_reward::Function,Dt::Float64,
-                    value_array::Array{Float64,1}, veh::VehicleBody, sg) where {K,L,M,N}
-
-    best_val = -Inf
-    best_action_index = -1
-    # iterate through all given action indices
-    for ja in eachindex(ia_set)
-        a = actions[ia_set[ja]]
-        if(a[2] in Dv_RC)
-            reward_x_a = get_reward(x, a, Dt, veh)
-            x_p, _ = propagate_state(x, a, Dt, veh)
-            val_xp = reward_x_a + interp_value(x_p, value_array, sg)
-            if(val_xp > best_val)
-                best_val = val_xp
-                best_action_index = ja
-            end
-        end
+function wrap_between_minus_π_and_π(angle)
+    while angle < -π    
+        angle += 2π
     end
-
-    return best_val, best_action_index
-end
-function test_new_optimize_actions(RG)
-    state_k = SVector(2.0,2.0,0.0,1.0)
-    actions, ia_set = RG[:f_act](state_k, RG[:Dt], RG[:veh])
-    new_optimize_action(state_k, Tuple(0.5), ia_set, actions, RG[:f_cost], RG[:Dt], RG[:V], RG[:veh], RG[:sg])
-end
-
-function old_propagate_state(x_k, a_k, Dt, veh)
-    # define number of substeps used for integration
-    substeps = 10
-    Dt_sub = Dt / substeps
-
-    x_k1_subpath = MVector{substeps, SVector{4, Float64}}(undef)
-
-    # step through substeps from x_k
-    x_kk = x_k
-    for kk in 1:substeps
-        # Dv applied on first substep only
-        kk == 1 ? a_kk = a_k : a_kk = SVector{2, Float64}(a_k[1], 0.0)
-
-        # propagate for Dt_sub
-        x_kk1 = discrete_time_EoM(x_kk, a_kk, Dt_sub, veh)
-
-        # store new point in subpath
-        x_k1_subpath[kk] = x_kk1
-
-        # pass state to next loop
-        x_kk = x_kk1
+    while angle > π
+        angle -= 2π
     end
-
-    x_k1 = x_kk
-
-    return x_k1, SVector(x_k1_subpath)
+    return angle
 end
 
-function propagate_state(x_k, a_k, Dt, veh)
-    # define number of substeps used for integration
-    x_k1 = discrete_time_EoM(x_k, a_k, Dt, veh)
-    return x_k1, 1
-end
-
-function discrete_time_EoM(x_k, a_k, Dt, veh)
-    # break out current state
-    xp_k = x_k[1]
-    yp_k = x_k[2]
-    theta_k = x_k[3]
-    v_k = x_k[4]
-
-    # break out action
-    phi_k = a_k[1]
-    Dv_k = a_k[2]
-
-    # calculate derivative at current state
-    xp_dot_k = (v_k + Dv_k) * cos(theta_k)
-    yp_dot_k = (v_k + Dv_k) * sin(theta_k)
-    theta_dot_k = (v_k + Dv_k) * 1/veh.l * tan(phi_k)
-
-    # calculate next state with linear approximation
-    xp_k1 = xp_k + (xp_dot_k * Dt)
-    yp_k1 = yp_k + (yp_dot_k * Dt)
-    theta_k1 = theta_k + (theta_dot_k * Dt)
-    v_k1 = v_k + (Dv_k)
-
-    # modify angle to be within [-pi, +pi] range
-    theta_k1 = theta_k1 % (2*pi)
-    if theta_k1 > pi
-        theta_k1 -= 2*pi
-    elseif theta_k1 < -pi
-        theta_k1 += 2*pi
-    end
-
-    # reassemble state vector
-    x_k1 = SVector{4, Float64}(xp_k1, yp_k1, theta_k1, v_k1)
-
-    return x_k1
-end
-
-function interp_value(grid::RectangleGrid, value_array::Vector{Float64}, x::AbstractVector)
+function interpolate_value(grid::RectangleGrid, value_array::Vector{Float64}, x::AbstractVector)
     # check if current state is within state space
     for d in eachindex(x)
         if x[d] < grid.cutPoints[d][1] || x[d] > grid.cutPoints[d][end]
@@ -157,13 +58,6 @@ function interp_value(grid::RectangleGrid, value_array::Vector{Float64}, x::Abst
     val_x = GridInterpolations.interpolate(grid, value_array, x)
     return val_x
 end
-#=
-RG = run_HJB(false);
-function test_interp_value(RG)
-    state_k = SVector(2.4,1.7,0.3,1.0)
-    interp_value(state_k,RG[:V],RG[:sg])
-end
-=#
 
 function interp_value_NN(x, value_array, sg)
     # check if current state is within state space
@@ -228,16 +122,15 @@ end
 
 # target set checker
 function in_target_set(x, env, veh)
-    # state only inside goal region
-    x_pos = Singleton(x[1:2])
 
-    if issubset(x_pos, env.goal)
+    # Check if the state is inside the goal region
+    position = Singleton( SVector(x[1],x[2]) )
+    if issubset(position, env.goal)
         return true
     end
 
-    # # full body inside goal region
-    # veh_body = state_to_body(x, veh)
-
+    #Check if the full vehicle body is inside the goal region
+    # veh_body = state_to_body_circle(x, veh)
     # if issubset(veh_body, env.goal)
     #     return true
     # end
