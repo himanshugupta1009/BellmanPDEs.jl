@@ -1,9 +1,3 @@
-struct HJBPlanner{S,P}
-    solver::S
-    problem::P
-    safe_value_limit::Float64
-end
-
 function find_best_action(planner, s, actions, velocity_set)  
     
     #=
@@ -48,9 +42,9 @@ p = HJBPlanner(RG[:solver],RG[:problem],750.0);
 @profview for i in 1:10000 test_find_best_action(p) end
 =#
 
-function final_HJB_policy(planner, state)
-    
-    
+
+function optimal_HJB_policy(planner, state)
+        
     #=
     Logic that Will used for this function
     1) If current vehicle velocity is 0.0, find the best action where dv>0.0 (dv=0.5 for our case)
@@ -81,17 +75,18 @@ function final_HJB_policy(planner, state)
         return best_action
     end
 end
-function test_final_HJB_policy(planner)
+function test_optimal_HJB_policy(planner)
     state = SVector(2.0,2.0,0.0,1.0)
-    final_HJB_policy(planner,state)
+    optimal_HJB_policy(planner,state)
 end
 #=
 p = HJBPlanner(RG[:solver],RG[:problem],750.0);
-@benchmark test_final_HJB_policy($p)
-@profview for i in 1:10000 test_final_HJB_policy(p) end
+@benchmark test_optimal_HJB_policy($p)
+@profview for i in 1:10000 test_optimal_HJB_policy(p) end
 =#
 
-function final_reactive_policy(planner,state,velocity_reactive_controller)
+
+function reactive_controller_HJB_policy(planner,state,velocity_reactive_controller)
     
     #=
     Given the velocity chosen by the reactive controller, find the best action
@@ -122,18 +117,23 @@ function final_reactive_policy(planner,state,velocity_reactive_controller)
     If the action determined using reactive controller velocity action is not valid, then
     find the best action from all the actions for the current state
     =#
+    #=
+    NOTE: This can be improved. We find the best action with velocity_set (0.0, -δv) and then Check
+    if the returned value is greater than previously returned best_value and make the decision
+    accordingly. That will save computation time.
+    =#
     velocity_set = (-δv,0.0,δv)
     best_value, best_action_index = find_best_action(planner,state,actions,velocity_set)
     best_action = actions[best_action_index]
     return best_action
 end
-function test_final_reactive_policy(planner)
+function test_reactive_controller_HJB_policy(planner)
     state = SVector(2.0,2.0,0.0,1.0)
     delta_speed = 0.5
-    final_reactive_policy(planner,state,delta_speed)
+    reactive_controller_HJB_policy(planner,state,delta_speed)
 end
 #=
 p = HJBPlanner(RG[:solver],RG[:problem],750.0);
-@benchmark test_final_reactive_policy($p)
-@profview for i in 1:10000 test_final_reactive_policy(p) end
+@benchmark test_reactive_controller_HJB_policy($p)
+@profview for i in 1:10000 test_reactive_controller_HJB_policy(p) end
 =#

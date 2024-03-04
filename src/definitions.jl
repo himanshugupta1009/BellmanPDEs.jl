@@ -1,41 +1,35 @@
-# Define Different Structs
+#Define different structs for the package
 
-struct Environment{P,Q,R}
-    workspace::P
-    obstacle_list::Q
-    goal::R
+#=
+Solver Parameters:
+=#
+struct HJBSolver{P}
+    grid::RectangleGrid{P}
+    Q_values::Matrix{Float64}
+    V_values::Vector{Float64}
+    state_type::Vector{Int}
+    max_steps::Int
+    ϵ::Float64 #Dval_tol in old code
+    Δt::Float64
 end
 
-struct VehicleBody{T}
-    l::Float64
-    body_dims::SVector{2,Float64}
-    radius_vb::Float64
-    origin_to_cent::SVector{2,Float64}
-    origin_body::T
-    phi_max::Float64
-    v_max::Float64
+#=
+Problem Parameters:
+=#
+struct Problem{N,E,V,F1<:Function,F2<:Function}
+    state_range::SVector{N,Tuple{Float64,Float64}}
+    δstate::SVector{N,Float64}
+    env::E
+    veh::V
+    controls::F1
+    cost::F2
 end
 
-#Define the environment geometry
-function define_environment(workspace, obstacle_list, goal)
-    return Environment(workspace, obstacle_list, goal)
-end
-
-#Define the vehicle geometry
-function define_vehicle(wheelbase, body_dims, origin_to_cent, phi_max, v_max)
-    radius_vb = sqrt((0.5*body_dims[1])^2 + (0.5*body_dims[2])^2)
-
-    x0_min = origin_to_cent[1] - 1/2*body_dims[1]
-    x0_max = origin_to_cent[1] + 1/2*body_dims[1]
-    y0_min = origin_to_cent[2] - 1/2*body_dims[2]
-    y0_max = origin_to_cent[2] + 1/2*body_dims[2]
-    origin_body = VPolygon([
-                        SVector(x0_min, y0_min),
-                        SVector(x0_max, y0_min),
-                        SVector(x0_max, y0_max),
-                        SVector(x0_min, y0_max)
-                        ])
-
-    veh = VehicleBody(wheelbase, body_dims, radius_vb, origin_to_cent, origin_body, phi_max, v_max)
-    return veh
+#=
+Planner Parameters:
+=#
+struct HJBPlanner{S,P}
+    solver::S
+    problem::P
+    safe_value_limit::Float64
 end

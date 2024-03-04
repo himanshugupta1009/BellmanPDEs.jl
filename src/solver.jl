@@ -1,29 +1,3 @@
-#=
-Solver Parameters:
-=#
-struct HJBSolver{P}
-    grid::RectangleGrid{P}
-    Q_values::Matrix{Float64}
-    V_values::Vector{Float64}
-    state_type::Vector{Int}
-    max_steps::Int
-    ϵ::Float64 #Dval_tol in old code
-    Δt::Float64
-end
-
-#=
-Problem Parameters:
-=#
-struct Problem{N,A,B,C,T,F1<:Function,F2<:Function}
-    state_range::SVector{N,Tuple{Float64,Float64}}
-    δstate::SVector{N,Float64}
-    env::Environment{A,B,C}
-    veh::VehicleBody{T}
-    controls::F1
-    cost::F2
-end
-
-
 function HJBSolver(problem::Problem;max_steps,ϵ,Δt)
 
     (;state_range,δstate) = problem
@@ -45,7 +19,7 @@ function HJBSolver(problem::Problem;max_steps,ϵ,Δt)
                     )
 end
 
-# main function to iteratively calculate HJB value function
+# The main function to iteratively calculate HJB value function
 function solve(solver::HJBSolver, problem::Problem)
 
     (;grid, Q_values, V_values, state_type, max_steps, ϵ, Δt) = solver
