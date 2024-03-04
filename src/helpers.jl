@@ -1,25 +1,37 @@
+#=
 using StaticArrays
 using GridInterpolations
 using LazySets
 using Random
 using JLD2
 
-include("definitions.jl")
-include("planner.jl")
-include("solver.jl")
-include("utils.jl")
-
-#=
-The weird thing with VPolygon is that it needs a Vector input, or else it fails.
-For instance, this will not work:
-
-workspace = VPolygon(
-             SVector{4,Tuple{Float64,Float64}}( [ (0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0,10.0) ] )
-            )
-
-So, it seems best if input to VPolygon is a vector of SVectors while defining the polygon.
 =#
+
+using BellmanPDEs
+using StaticArrays
+using JLD2
+
+
+struct Environment{P,Q,R}
+    workspace::P
+    obstacle_list::Q
+    goal::R
+end
+
+
+#Define the environment geometry
 function get_HJB_environment(l,b)
+
+    #=
+    The weird thing with VPolygon is that it needs a Vector input, or else it fails.
+    For instance, this will not work:
+
+    workspace = VPolygon(
+                SVector{4,Tuple{Float64,Float64}}( [ (0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0,10.0) ] )
+                )
+
+    So, it seems best if input to VPolygon is a vector of SVectors while defining the polygon.
+    =#
 
     workspace = VPolygon([ SVector(0.0, 0.0),
                            SVector(l, 0.0),
@@ -46,6 +58,37 @@ function get_HJB_environment(l,b)
     return env
 end
 
+
+struct VehicleBody{T}
+    l::Float64
+    body_dims::SVector{2,Float64}
+    radius_vb::Float64
+    origin_to_cent::SVector{2,Float64}
+    origin_body::T
+    phi_max::Float64
+    v_max::Float64
+end
+
+#Define the vehicle geometry
+function define_vehicle(wheelbase, body_dims, origin_to_cent, phi_max, v_max)
+    radius_vb = sqrt((0.5*body_dims[1])^2 + (0.5*body_dims[2])^2)
+
+    x0_min = origin_to_cent[1] - 1/2*body_dims[1]
+    x0_max = origin_to_cent[1] + 1/2*body_dims[1]
+    y0_min = origin_to_cent[2] - 1/2*body_dims[2]
+    y0_max = origin_to_cent[2] + 1/2*body_dims[2]
+    origin_body = VPolygon([
+                        SVector(x0_min, y0_min),
+                        SVector(x0_max, y0_min),
+                        SVector(x0_max, y0_max),
+                        SVector(x0_min, y0_max)
+                        ])
+
+    veh = VehicleBody(wheelbase, body_dims, radius_vb, origin_to_cent, origin_body, phi_max, v_max)
+    return veh
+end
+
+
 function get_HJB_vehicle()
     length = 1.0
     breadth = 0.5
@@ -58,6 +101,7 @@ function get_HJB_vehicle()
     veh_body = define_vehicle(wheelbase, body_dims, origin_to_cent, max_steering_angle, max_speed)
     return veh_body
 end
+
 
 function HJB_actions(x, Dt, veh)
     # set change in velocity (Dv) limit
@@ -110,17 +154,12 @@ function HJB_actions(x, Dt, veh)
 
     return actions
 end
-#=
-function test_dynamic_dispatch(v::VehicleBody,func::Function)
-    s = SVector(2.0,2.0,0.0,1.0)
-    dt = 0.5
-    a,i = func(s,dt,v)
-end
-=#
+
 
 function HJB_cost(x, a, Dt, veh)
     return -Dt
 end
+
 
 function run_new_HJB(flag)
 
@@ -162,9 +201,11 @@ function run_new_HJB(flag)
     end
 end
 
+
 #=
 RG = run_new_HJB(true);
 RG = run_new_HJB(false);
+p = HJBPlanner(RG[:solver],RG[:problem],750.0);
 
 Verify if the new solver code worked fine
 
@@ -174,5 +215,12 @@ for i in 1:length(RG[:V])
    end
 end
 
-p = HJBPlanner(RG[:solver],RG[:problem],750.0);
+s = load("./old_src/HJB_rollout_guide.jld2");
+R = s["rollout_guide"];
+dig = 10
+for i in 1:length(RG[:solver].V_values)
+   if( round(R[:solver].V_values[i],digits=dig) != round(RG[:solver].V_values[i],digits=dig))
+       println(i)
+   end
+end
 =#
