@@ -14,23 +14,24 @@ The weird thing with VPolygon is that it needs a Vector input, or else it fails.
 For instance, this will not work:
 
 workspace = VPolygon(
-                    SVector{4,Tuple{Float64,Float64}}( [ (0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0,10.0) ] )
-                    )
+             SVector{4,Tuple{Float64,Float64}}( [ (0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0,10.0) ] )
+            )
 
 So, it seems best if input to VPolygon is a vector of SVectors while defining the polygon.
 =#
-function get_HJB_environment()
-    l = 100.0
-    b = 100.0
+function get_HJB_environment(l,b)
+
     workspace = VPolygon([ SVector(0.0, 0.0),
                            SVector(l, 0.0),
                            SVector(l, b),
                            SVector(0.0,b)]
                             )
     #Assumption - Circular obstacles with some known radius (x,y,r)
-    # workspace_obstacles =  SVector{4,Tuple{Float64,Float64,Float64}}([ (5.125, 4.875, 1.125),(6.5, 15.25, 1.5),(16.25, 11.0, 1.125),(10.0, 9.5, 2.25) ])
-    # workspace_obstacles =  SVector{5,Tuple{Float64,Float64,Float64}}([ (6,9,2),(7,19,1.5),(12,25,1.5),(16,15,2.5),(26,7,1.75) ])
-    workspace_obstacles =  SVector{1,Tuple{Float64,Float64,Float64}}([(70,30,30)])
+    workspace_obstacles =  SVector{4,Tuple{Float64,Float64,Float64}}([ (5.125, 4.875, 1.125),
+                                        (6.5, 15.25, 1.5),(16.25, 11.0, 1.125),(10.0, 9.5, 2.25) ])
+    # workspace_obstacles =  SVector{5,Tuple{Float64,Float64,Float64}}([ (6,9,2),(7,19,1.5),
+    #                                     (12,25,1.5),(16,15,2.5),(26,7,1.75) ])
+    # workspace_obstacles =  SVector{1,Tuple{Float64,Float64,Float64}}([(70,30,30)])
 
     obstacle_list = Array{VPolygon,1}()
     for obs in workspace_obstacles
@@ -38,7 +39,7 @@ function get_HJB_environment()
     end
     obstacle_list = SVector{length(workspace_obstacles),VPolygon{Float64, SVector{2, Float64}}}(obstacle_list)
 
-    workspace_goal = (90.0,75.0)
+    workspace_goal = (20.0,25.0)
     goal = VPolyCircle(workspace_goal, 1.0)
 
     env = Environment(workspace, obstacle_list, goal)
@@ -105,10 +106,9 @@ function HJB_actions(x, Dt, veh)
         (phi_lim_p, Dv_lim)
         )
 
-    # ia_set = collect(1:length(actions))
-    ia_set = SVector{num_actions,Int}(1:num_actions)
+    # ia_set = SVector{num_actions,Int}(1:num_actions)
 
-    return actions,ia_set
+    return actions
 end
 #=
 function test_dynamic_dispatch(v::VehicleBody,func::Function)
@@ -127,8 +127,8 @@ function run_new_HJB(flag)
     Δt = 0.5
     ϵ = 0.1
     max_solve_steps = 200
-    l = 100.0
-    b = 100.0
+    l = 30.0
+    b = 30.0
     max_speed = 2.0
     state_range = SVector{4,Tuple{Float64,Float64}}([
                     (0.0,l), #Range in x
@@ -137,7 +137,7 @@ function run_new_HJB(flag)
                     (0.0,max_speed) #Range in v
                     ])
     dx_sizes = SVector(0.5, 0.5, deg2rad(18.0), 0.5)
-    env = get_HJB_environment()
+    env = get_HJB_environment(l,b)
     veh = get_HJB_vehicle()
 
     P = Problem(state_range,dx_sizes,env,veh,HJB_actions,HJB_cost)
@@ -173,4 +173,6 @@ for i in 1:length(RG[:V])
        println(i)
    end
 end
+
+p = HJBPlanner(RG[:solver],RG[:problem],750.0)
 =#
