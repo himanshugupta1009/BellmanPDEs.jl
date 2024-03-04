@@ -1,6 +1,3 @@
-# utils.jl
-
-
 function propagate_state(state, action, Δt, veh)
     #=
     Use the dynamics function to propogate the vehicle from given state
@@ -9,6 +6,7 @@ function propagate_state(state, action, Δt, veh)
     new_state = get_next_state(state, action, Δt, veh)
     return new_state
 end
+
 
 function get_next_state(s,a,Δt,veh)
 
@@ -36,6 +34,7 @@ function get_next_state(s,a,Δt,veh)
     return sp
 end
 
+
 function wrap_between_minus_π_and_π(angle)
     while angle < -π    
         angle += 2π
@@ -46,8 +45,9 @@ function wrap_between_minus_π_and_π(angle)
     return angle
 end
 
+
 function interpolate_value(grid::RectangleGrid, value_array::Vector{Float64}, x::AbstractVector)
-    # check if current state is within state space
+    #Check if current state is within the state space
     for d in eachindex(x)
         if x[d] < grid.cutPoints[d][1] || x[d] > grid.cutPoints[d][end]
             val_x = -1e6
@@ -59,23 +59,23 @@ function interpolate_value(grid::RectangleGrid, value_array::Vector{Float64}, x:
     return val_x
 end
 
-function interp_value_NN(x, value_array, sg)
-    # check if current state is within state space
-    for d in eachindex(x)
-        if x[d] < sg.state_grid.cutPoints[d][1] || x[d] > sg.state_grid.cutPoints[d][end]
-            val_x = -1e6
 
+function interpolate_value_NN(grid::RectangleGrid, value_array::Vector{Float64}, x::AbstractVector)
+    #Check if current state is within the state space
+    for d in eachindex(x)
+        if x[d] < grid.cutPoints[d][1] || x[d] > grid.cutPoints[d][end]
+            val_x = -1e6
             return val_x
         end
     end
 
-    # take nearest-neighbor value
-    ind_s_nbrs, weights_nbrs = interpolants(sg.state_grid, x)
+    #Find the nearest neighbor's value
+    ind_s_nbrs, weights_nbrs = interpolants(grid, x)
     ind_s_NN = ind_s_nbrs[findmax(weights_nbrs)[2]]
     val_x = value_array[ind_s_NN]
-
     return val_x
 end
+
 
 # used for GridInterpolations.jl indexing
 function multi2single_ind(grid, itr)
@@ -86,96 +86,6 @@ function multi2single_ind(grid, itr)
     return state_index
 end
 
-#=
-NOTE: LazySets functions used here
-=#
-
-# workspace checker
-function in_workspace(x, env, veh)
-    # veh_body = state_to_body(x, veh)
-    veh_body = state_to_body_circle(x, veh)
-
-    if issubset(veh_body, env.workspace)
-        return true
-    end
-
-    return false
-end
-
-# obstacle set checker
-function in_obstacle_set(x, env, veh)
-    # veh_body = state_to_body(x, veh)
-    veh_body = state_to_body_circle(x, veh)
-
-    for obstacle in env.obstacle_list
-        # if isempty(intersection(veh_body, obstacle)) == false || isempty(intersection(obstacle, veh_body)) == false
-        #     return true
-        # end
-
-        if isdisjoint(veh_body, obstacle) == false
-            return true
-        end
-    end
-
-    return false
-end
-
-# target set checker
-function in_target_set(x, env, veh)
-
-    # Check if the state is inside the goal region
-    position = Singleton( SVector(x[1],x[2]) )
-    if issubset(position, env.goal)
-        return true
-    end
-
-    #Check if the full vehicle body is inside the goal region
-    # veh_body = state_to_body_circle(x, veh)
-    # if issubset(veh_body, env.goal)
-    #     return true
-    # end
-
-    return false
-end
-
-# vehicle body transformation function
-function state_to_body(x, veh)
-    # rotate body about origin by theta
-    theta = x[3]
-    rot_matrix = [cos(theta) -sin(theta); sin(theta) cos(theta)]
-    body = linear_map(rot_matrix, veh.origin_body)
-
-    # translate body from origin by [x, y]
-    pos_vec = x[1:2]
-    LazySets.translate!(body, pos_vec)
-
-    return body
-end
-
-# vehicle body transformation function
-function state_to_body_circle(x, veh)
-    d = veh.origin_to_cent[1]
-
-    xp_c = x[1] + d * cos(x[3])
-    yp_c = x[2] + d * sin(x[3])
-
-    body_circle = VPolyCircle((xp_c, yp_c), veh.radius_vb)
-
-    return body_circle
-end
-
-# used to create circles as polygons in LazySets.jl
-function VPolyCircle(center, radius)
-    # number of points used to discretize edge of circle
-    pts = 16
-    # circle radius is used as midpoint radius for polygon faces (over-approximation)
-    r_poly = radius/cos(pi/pts)
-    theta_rng = range(0, 2*pi, length=pts+1)
-    circular_polygon_vertices = [ SVector(center[1] + r_poly*cos(theta), center[2] + r_poly*sin(theta)) for theta in theta_rng]
-    circular_polygon = VPolygon(circular_polygon_vertices)
-
-    return circular_polygon
-end
 
 function get_iterators(problem::Problem)
 
@@ -213,6 +123,7 @@ function get_iterators(problem::Problem)
     return ind_gs_array
 end
 
+
 function get_all_states(rectangle_grid)
     num_dimensions = GridInterpolations.dimensions(rectangle_grid)
     #=
@@ -229,4 +140,92 @@ function get_all_states(rectangle_grid)
     end
     =#
     return state_list
+end
+
+
+#=
+NOTE: LazySets functions used here
+=#
+
+#Check if point is in the Workspace
+function in_workspace(x, env, veh)
+    # veh_body = state_to_body(x, veh)
+    veh_body = state_to_body_circle(x, veh)
+    if issubset(veh_body, env.workspace)
+        return true
+    end
+
+    return false
+end
+
+#Check if point is in any of the obstacles
+function in_obstacle_set(x, env, veh)
+    # veh_body = state_to_body(x, veh)
+    veh_body = state_to_body_circle(x, veh)
+    for obstacle in env.obstacle_list
+        # if isempty(intersection(veh_body, obstacle)) == false || isempty(intersection(obstacle, veh_body)) == false
+        #     return true
+        # end
+        if isdisjoint(veh_body, obstacle) == false
+            return true
+        end
+    end
+
+    return false
+end
+
+#Check if point is in the Target/Goal
+function in_target_set(x, env, veh)
+
+    # Check if the state is inside the goal region
+    position = Singleton( SVector(x[1],x[2]) )
+    if issubset(position, env.goal)
+        return true
+    end
+
+    #Check if the full vehicle body is inside the goal region
+    # veh_body = state_to_body_circle(x, veh)
+    # if issubset(veh_body, env.goal)
+    #     return true
+    # end
+
+    return false
+end
+
+# vehicle body transformation function
+function state_to_body(x, veh)
+    #First, rotate the body about origin by theta degrees
+    theta = x[3]
+    # rot_matrix = [cos(theta) -sin(theta); sin(theta) cos(theta)]
+    #=
+    Note, there is a transpose here so that the rotation matrix is correct
+    =#
+    rotation_matrix = SMatrix{2,2}(cos(theta), -sin(theta), sin(theta), cos(theta))'
+    body = linear_map(rot_matrix, veh.origin_body)
+
+    #Secnond, translate body from origin by to the vehicle's position
+    pos_vec = SVector(x[1],x[2])
+    LazySets.translate!(body, pos_vec)
+    return body
+end
+
+# vehicle body transformation function
+function state_to_body_circle(x, veh)
+    d = veh.origin_to_cent[1]
+    xp_c = x[1] + d*cos(x[3])
+    yp_c = x[2] + d*sin(x[3])
+    body_circle = VPolyCircle((xp_c, yp_c), veh.radius_vb)
+    return body_circle
+end
+
+# used to create circles as polygons in LazySets.jl
+function VPolyCircle(center, radius)
+    #Number of points used to discretize edge of circle
+    pts = 16
+    #Circle radius is used as midpoint radius for polygon faces (over-approximation)
+    r_poly = radius/cos(pi/pts)
+    theta_rng = range(0, 2*pi, length=pts+1)
+    circular_polygon_vertices = [ SVector(center[1] + r_poly*cos(theta), center[2] + r_poly*sin(theta)) for theta in theta_rng]
+    circular_polygon = VPolygon(circular_polygon_vertices)
+    return circular_polygon
 end
