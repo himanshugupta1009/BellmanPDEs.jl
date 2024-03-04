@@ -1,21 +1,13 @@
+state_space = SVector{2,Tuple{Float64,Float64}}([
+                (0.0,10.0), #Range in x
+                (0.0,10.0), #Range in y
+                ])
+dx_sizes = SVector(0.5, 0.5)
 
-JET.@report_opt ignored_modules=(Base,) test_reactive_policy(RG)
+#=
+Don't import ProfileView. Apparaently, VS Code has its own version of it.
+VSCodeServer has its own version of @profview which is imported by default. 
+So, jusst call @profview on the function directly
+=#
 
-@profiler for i in 1:10000 test_reactive_policy(RG) end
-
-state_k = SVector(2.0,2.0,0.0,1.0)
-delta_speed = 0.5
-safe_value_lim = 750.0
-one_time_step = 0.5
-f_act = RG[:f_act]
-f_cost = RG[:f_cost]
-Q = RG[:Q]
-V = RG[:V]
-veh = RG[:veh]
-sg = RG[:sg]
-
-@profiler for i in 1:10000 reactive_policy(state_k,delta_speed,safe_value_lim,f_act,f_cost,one_time_step,Q,V,veh,sg) end
-@code_warntype reactive_policy(state_k,delta_speed,safe_value_lim,f_act,f_cost,one_time_step,Q,V,veh,sg)
-
-JET.@report_opt ignored_modules=(Base,) reactive_policy(state_k,delta_speed,safe_value_lim,f_act,f_cost,one_time_step,Q,V,veh,sg)
-JET.@report_opt ignored_modules=() reactive_policy(state_k,delta_speed,safe_value_lim,f_act,f_cost,one_time_step,Q,V,veh,sg)
+@profview test_func()
