@@ -95,14 +95,14 @@ function update_state_values(curr_state, state_index, solver, problem)
     (;grid, Q_values, V_values, max_steps, ϵ, Δt) = solver
     (;veh,controls,cost) = problem
 
-    actions, _ = controls(curr_state, Δt, veh)
+    actions = controls(curr_state, Δt, veh)
     max_Q_value = -Inf
 
-    for i in 1:length(actions)
+    for i in eachindex(actions)
         a = actions[i]
         immediate_cost = cost(curr_state, a, Δt, veh)
-        next_state, _ = propagate_state(curr_state, a, Δt, veh)
-        V_next_state = interp_value(grid, V_values, next_state)
+        next_state = propagate_state(curr_state, a, Δt, veh)
+        V_next_state = interpolate_value(grid, V_values, next_state)
         new_Q_value = immediate_cost + V_next_state
         Q_values[state_index,i] = new_Q_value
         max_Q_value = (new_Q_value>max_Q_value) ? new_Q_value : max_Q_value
@@ -116,7 +116,7 @@ function initialize_value_arrays(problem::Problem, grid)
 
     (;env,veh,controls) = problem
     state = grid[1]
-    actions,_ = controls(state, 0.5, veh)
+    actions = controls(state, 0.5, veh)
 
     N_states = length(grid)
     N_actions = length(actions)
