@@ -59,20 +59,21 @@ function get_HJB_environment(l,b)
 end
 
 
-struct VehicleBody{T}
+struct VehicleParameters{T}
     l::Float64
     body_dims::SVector{2,Float64}
     radius_vb::Float64
     origin_to_cent::SVector{2,Float64}
     origin_body::T
     phi_max::Float64
+    delta_theta_max::Float64
     v_max::Float64
+    delta_speed::Float64
 end
 
 #Define the vehicle geometry
-function define_vehicle(wheelbase, body_dims, origin_to_cent, phi_max, v_max)
-    radius_vb = sqrt((0.5*body_dims[1])^2 + (0.5*body_dims[2])^2)
-
+function get_vehicle_body(body_dims,origin_to_cent)
+    
     x0_min = origin_to_cent[1] - 1/2*body_dims[1]
     x0_max = origin_to_cent[1] + 1/2*body_dims[1]
     y0_min = origin_to_cent[2] - 1/2*body_dims[2]
@@ -84,54 +85,61 @@ function define_vehicle(wheelbase, body_dims, origin_to_cent, phi_max, v_max)
                         SVector(x0_min, y0_max)
                         ])
 
-    veh = VehicleBody(wheelbase, body_dims, radius_vb, origin_to_cent, origin_body, phi_max, v_max)
-    return veh
+    return origin_body
 end
 
 
 function get_HJB_vehicle()
-    length = 1.0
-    breadth = 0.5
+    length = 0.5207
+    breadth = 0.2762
     body_dims = SVector(length, breadth)
-    dist_origin_to_center = 0.375
-    origin_to_cent = SVector(dist_origin_to_center, 0.0) # (x,y) distance of the vehicle center to the origin of the vehicle which is the center point of the rear axis
-    wheelbase = 0.75
+    radius_around_vehicle = sqrt((0.5*body_dims[1])^2 + (0.5*body_dims[2])^2)
+    dist_origin_to_center = 0.1715
+    #=
+    (x,y) distance of the vehicle center to the origin of the vehicle 
+    which is the center point of the rear axis
+    =#
+    origin_to_cent = SVector(dist_origin_to_center, 0.0) 
+    vehicle_body = get_vehicle_body(body_dims,origin_to_cent)
+    wheelbase = 0.324
     max_steering_angle = 0.475
+    max_delta_theta = pi/4
     max_speed = 2.0
-    veh_body = define_vehicle(wheelbase, body_dims, origin_to_cent, max_steering_angle, max_speed)
-    return veh_body
+    delta_speed = 0.5
+
+    veh_params = VehicleParameters(wheelbase, body_dims, radius_around_vehicle,
+                                origin_to_cent, vehicle_body, max_steering_angle, 
+                                max_delta_theta,max_speed,delta_speed)
+    return veh_params
 end
 
 
 function HJB_actions(x, Dt, veh)
-    # set change in velocity (Dv) limit
-    Dv_lim = 0.5
-    # set steering angle (phi) limit
-    phi_max = 0.475
-    Dtheta_lim = deg2rad(45)
+ 
+    (;l,phi_max,delta_theta_max,delta_speed) = veh
 
     v = x[4]
-    vp = v + Dv_lim
-    vn = v - Dv_lim
+    vp = v + delta_speed
+    vn = v - delta_speed
 
-    phi_lim = atan(Dtheta_lim * 1/Dt * 1/abs(v) * veh.l)
+    phi_lim = atan(delta_theta_max * 1/Dt * 1/abs(v) * l)
     phi_lim = clamp(phi_lim, 0.0, phi_max)
 
-    phi_lim_p = atan(Dtheta_lim * 1/Dt * 1/abs(vp) * veh.l)
+    phi_lim_p = atan(delta_theta_max * 1/Dt * 1/abs(vp) * l)
     phi_lim_p = clamp(phi_lim_p, 0.0, phi_max)
 
-    phi_lim_n = atan(Dtheta_lim * 1/Dt * 1/abs(vn) * veh.l)
+    phi_lim_n = atan(delta_theta_max * 1/Dt * 1/abs(vn) * l)
     phi_lim_n = clamp(phi_lim_n, 0.0, phi_max)
 
     num_actions = 21
     actions = SVector{num_actions, SVector{2, Float64}}(
-        (-phi_lim_n, -Dv_lim),        # Dv = -Dv
-        (-2/3*phi_lim_n, -Dv_lim),
-        (-1/3*phi_lim_n, -Dv_lim),
-        (0.0, -Dv_lim),
-        (1/3*phi_lim_n, -Dv_lim),
-        (2/3*phi_lim_n, -Dv_lim),
-        (phi_lim_n, -Dv_lim),
+        (-phi_lim_n, -delta_speed),        # Dv = -Dv
+        (-2/3*phi_lim_n, -delta_speed),
+        (-1/3*phi_lim_n, -delta_speed),
+        (0.0, -delta_speed),
+        (1/3*phi_lim_n, -delta_speed),
+        (2/3*phi_lim_n, -delta_speed),
+        (phi_lim_n, -delta_speed),
 
         (-phi_lim, 0.0),       # Dv = 0.0
         (-2/3*phi_lim, 0.0),
@@ -141,16 +149,14 @@ function HJB_actions(x, Dt, veh)
         (2/3*phi_lim, 0.0),
         (phi_lim, 0.0),
 
-        (-phi_lim_p, Dv_lim),        # Dv = +Dv
-        (-2/3*phi_lim_p, Dv_lim),
-        (-1/3*phi_lim_p, Dv_lim),
-        (0.0, Dv_lim),
-        (1/3*phi_lim_p, Dv_lim),
-        (2/3*phi_lim_p, Dv_lim),
-        (phi_lim_p, Dv_lim)
+        (-phi_lim_p, delta_speed),        # Dv = +Dv
+        (-2/3*phi_lim_p, delta_speed),
+        (-1/3*phi_lim_p, delta_speed),
+        (0.0, delta_speed),
+        (1/3*phi_lim_p, delta_speed),
+        (2/3*phi_lim_p, delta_speed),
+        (phi_lim_p, delta_speed)
         )
-
-    # ia_set = SVector{num_actions,Int}(1:num_actions)
 
     return actions
 end
