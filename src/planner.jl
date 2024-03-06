@@ -6,7 +6,7 @@ function find_best_action(planner, s, actions, velocity_set)
     =#
 
     (;grid, V_values, Δt) = planner.solver
-    (;veh, controls, cost) = planner.problem
+    (;veh, cost) = planner.problem
     
     best_value = -Inf
     best_action_index = -1
