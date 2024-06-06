@@ -108,7 +108,7 @@ function reactive_controller_HJB_policy(planner,state,velocity_reactive_controll
     best_value, best_action_index = find_best_action(planner,state,actions,velocity_set)
 
     #Check if this action is a valid action in static environment ---
-    if (best_value >= SVL)
+    if ( best_value >= SVL || (state[4] == 0.0 && velocity_reactive_controller == δv) ) 
         best_action = actions[best_action_index]
         return best_action
     end
